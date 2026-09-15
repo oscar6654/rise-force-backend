@@ -1,0 +1,33 @@
+<%= form_with model: branch, local: true do |f| %>
+  <%= render "shared/form_errors", model: branch %>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <%= f.label :code, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :code, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :name, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :name, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :region, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :region, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :timezone, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :timezone, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :vcsi_branch_ref, "vcsi_rise branch ref", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :vcsi_branch_ref, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :status, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.select :status, Branch.statuses.keys.map { |s| [s.titleize, s] }, {}, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+  </div>
+  <div class="mt-5 flex items-center gap-2">
+    <%= f.submit(branch.persisted? ? "Save changes" : "Create branch", class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-4 py-2 hover:bg-[#17386f] cursor-pointer") %>
+    <%= link_to "Cancel", branches_path, class: "text-sm text-slate-500 hover:underline px-2" %>
+  </div>
+<% end %>

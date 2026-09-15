@@ -1,0 +1,70 @@
+<% content_for :page_title, @seller.name %>
+<% content_for :page_sub do %><%= @seller.branch&.name %> · field visit detail<% end %>
+<% content_for :page_actions do %>
+  <%= link_to "← All sellers", visits_path(request.query_parameters.except(:flag, :page)), class: "text-sm text-[#1f4b99] hover:underline" %>
+<% end %>
+
+<%
+  chips = [
+    ["", "All", @tallies[:all]],
+    ["off_route", "Off route", @tallies[:off_route]],
+    ["no_order", "No order", @tallies[:no_order]],
+    ["geofence_override", "Geofence override", @tallies[:geofence_override]],
+    ["gps_mismatch", "GPS mismatch", @tallies[:gps_mismatch]]
+  ]
+  keep = request.query_parameters.except(:flag, :page)
+%>
+
+<div class="flex flex-wrap gap-2 mb-4">
+  <% chips.each do |val, label, count| %>
+    <% active = params[:flag].to_s == val %>
+    <%= link_to visit_path(@seller, keep.merge(flag: val.presence)),
+          class: "rounded-full px-3 py-1.5 text-xs font-semibold border #{active ? 'bg-[#1f4b99] text-white border-[#1f4b99]' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}" do %>
+      <%= label %> <span class="<%= active ? 'text-white/80' : 'text-slate-400' %>"><%= count %></span>
+    <% end %>
+  <% end %>
+  <span class="text-xs text-slate-500 ml-auto self-center"><%= @visit_count %> visits · <%= @stores_page.total_count %> stores</span>
+</div>
+
+<% if @stores_page.empty? %>
+  <div class="rounded-xl border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500">No visits match this filter.</div>
+<% else %>
+  <div class="space-y-3">
+    <% @stores_page.each do |store| %>
+      <% visits = @by_store[store.id] || [] %>
+      <div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <div class="px-4 py-2.5 border-b border-slate-100 flex items-center gap-2">
+          <%= link_to store.name, store_path(store), class: "text-sm font-medium text-[#1f4b99] hover:underline" %>
+          <span class="text-[11px] text-slate-400 font-mono"><%= store.code %></span>
+          <% if visits.any?(&:off_route) %><span class="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-orange-100 text-orange-700">off route</span><% end %>
+          <span class="text-[11px] text-slate-400 ml-auto"><%= pluralize(visits.size, "visit") %></span>
+        </div>
+        <div class="divide-y divide-slate-50">
+          <% visits.each do |v| %>
+            <div class="flex items-center gap-2 text-xs px-4 py-2">
+              <span class="text-slate-500 w-32 shrink-0"><%= v.visit_date %><% if v.started_at %> · <%= v.started_at.strftime("%H:%M") %><% end %></span>
+              <% case v.status %>
+              <% when "closed_with_order" %>
+                <span class="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700">Order</span>
+              <% when "closed_no_order" %>
+                <span class="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-800">No order</span>
+                <% if v.no_order_reason.present? %><span class="text-slate-500"><%= v.no_order_reason %></span><% end %>
+              <% else %>
+                <span class="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-slate-100 text-slate-600"><%= v.status.titleize %></span>
+              <% end %>
+              <div class="ml-auto flex items-center gap-2">
+                <% if v.gps_mismatch_distance_m %>
+                  <span class="font-mono <%= v.gps_mismatch_distance_m > 150 ? 'text-red-600 font-semibold' : 'text-slate-400' %>"><%= v.gps_mismatch_distance_m %> m</span>
+                <% end %>
+                <% if v.geofence_reason.present? %>
+                  <span class="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-red-50 text-red-700">⚑ <%= v.geofence_reason %></span>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+  <div class="mt-4"><%= paginate @stores_page if respond_to?(:paginate) %></div>
+<% end %>

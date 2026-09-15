@@ -1,0 +1,26 @@
+<% content_for :page_title, "Planograms" %>
+
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+  <% @planograms.each do |p| %>
+    <div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+      <div class="h-36 bg-slate-100 grid place-items-center text-slate-300 text-xs border-b border-slate-200">
+        <% if p.image? %><%= image_tag cdn_variant_url(p.file, resize_to_limit: [400,400]), class: "h-full w-full object-cover" %>
+        <% else %>Planogram file<% end %>
+      </div>
+      <div class="p-3">
+        <div class="text-sm font-semibold"><%= p.title %></div>
+        <div class="text-xs text-slate-500"><%= p.channel&.name %></div>
+        <div class="flex items-center gap-2 mt-2">
+          <span class="rounded text-[10px] font-semibold px-1.5 py-0.5 <%= p.active? ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600' %>"><%= p.status.titleize %></span>
+          <div class="flex-1 text-right"><% if can?(:planogram, :update) %><%= link_to "Edit", edit_planogram_path(p), class: "text-xs font-semibold text-[#1f4b99]" %><% end %></div>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <% if can?(:planogram, :create) %>
+    <%= link_to new_planogram_path, class: "rounded-xl border border-dashed border-slate-300 grid place-items-center min-h-[220px] text-slate-500 bg-slate-50 hover:bg-slate-100" do %>
+      <div class="text-center"><div class="text-2xl">＋</div><div class="text-sm font-semibold mt-1">Upload planogram</div><div class="text-[11px]">PDF or JPG per channel</div></div>
+    <% end %>
+  <% end %>
+</div>

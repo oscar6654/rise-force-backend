@@ -1,0 +1,61 @@
+<% content_for :page_title, @assortment.name %>
+<% content_for :page_actions do %>
+  <% if can?(:assortment, :update) %><%= link_to "Edit", edit_assortment_path(@assortment), class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %><% end %>
+<% end %>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <div class="px-4 py-3 border-b border-slate-200 text-sm flex items-center justify-between gap-3">
+    <div>
+      Scope: <strong><%= @assortment.branch&.name || "All branches" %></strong> ·
+      <strong><%= @assortment.channel&.name || "Any channel" %></strong> ·
+      <strong><%= @assortment.store_category_ref&.label || "Any category" %></strong>
+    </div>
+    <span class="shrink-0 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold px-2.5 py-1"><%= @item_count %> SKU<%= "s" unless @item_count == 1 %></span>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse min-w-[520px]">
+      <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+        <th class="px-4 py-2.5">SKU</th><th class="px-4 py-2.5">Product</th><th class="px-4 py-2.5">Must-stock</th><th class="px-4 py-2.5">Priority</th>
+      </tr></thead>
+      <tbody>
+        <% @items.each do |item| %>
+          <tr class="border-b border-slate-100">
+            <td class="px-4 py-3 font-mono text-xs text-slate-600"><%= item.product.sku %></td>
+            <td class="px-4 py-3 text-sm"><%= item.product.description %></td>
+            <td class="px-4 py-3 text-sm"><%= item.must_stock? ? "Yes" : "No" %></td>
+            <td class="px-4 py-3 text-sm text-slate-600"><%= item.priority %></td>
+          </tr>
+        <% end %>
+        <% if @item_count.zero? %><tr><td colspan="4" class="px-4 py-8 text-center text-sm text-slate-500">No SKUs yet — add some by IT barcode below.</td></tr><% end %>
+      </tbody>
+    </table>
+  </div>
+  <% if respond_to?(:paginate) && @items.total_pages > 1 %>
+    <div class="px-4 py-3 border-t border-slate-200"><%= paginate @items %></div>
+  <% end %>
+</div>
+
+<% if can?(:assortment, :update) %>
+  <div class="rounded-xl border border-slate-200 bg-white p-5 mt-4">
+    <h3 class="text-sm font-semibold text-slate-800 mb-1">Bulk add SKUs by IT barcode</h3>
+    <p class="text-xs text-slate-500 mb-4">Upload a CSV/text file (one <code>it_barcode</code> per line, an optional <code>it_barcode</code> header is ignored) or paste a list below. Each barcode adds <strong>every SKU that shares it</strong>. This <strong>appends</strong> — SKUs already in the list are skipped, nothing is removed.</p>
+    <%= form_with url: import_items_assortment_path(@assortment), method: :post, multipart: true, local: true do %>
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Upload file (.csv / .txt)</label>
+          <%= file_field_tag :file, accept: ".csv,.txt", class: "block w-full text-sm text-slate-600" %>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">…or paste barcodes</label>
+          <%= text_area_tag :barcodes, nil, rows: 4, placeholder: "4800016641&#10;4800016642&#10;4800016643", class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono" %>
+        </div>
+      </div>
+      <div class="flex items-center justify-between mt-4">
+        <label class="flex items-center gap-2 text-sm text-slate-600">
+          <%= check_box_tag :must_stock, "1", true, class: "rounded border-slate-300" %> Mark as must-stock
+        </label>
+        <%= submit_tag "Add to assortment", class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-4 py-2 hover:bg-[#17386f] cursor-pointer" %>
+      </div>
+    <% end %>
+  </div>
+<% end %>

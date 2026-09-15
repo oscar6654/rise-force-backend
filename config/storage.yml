@@ -1,0 +1,30 @@
+test:
+  service: Disk
+  root: <%= Rails.root.join("tmp/storage") %>
+
+local:
+  service: Disk
+  root: <%= Rails.root.join("storage") %>
+
+# AWS S3. Credentials are hydrated into ENV from the system_settings table by
+# config/initializers/00_load_config_from_db.rb (editable via the admin UI),
+# with plain ENV as a fallback. CloudFront fronts this bucket for reads; URLs
+# are rewritten to the CDN host in CdnAssetsHelper (no config needed here).
+amazon:
+  service: S3
+  access_key_id: <%= ENV["AWS_ACCESS_KEY_ID"] %>
+  secret_access_key: <%= ENV["AWS_SECRET_ACCESS_KEY"] %>
+  region: <%= ENV.fetch("AWS_REGION", "ap-southeast-1") %>
+  bucket: <%= ENV["AWS_BUCKET"] %>
+
+# Remember not to checkin your GCS keyfile to a repository
+# google:
+#   service: GCS
+#   project: your_project
+#   credentials: <%= Rails.root.join("path/to/gcs.keyfile") %>
+#   bucket: your_own_bucket-<%= Rails.env %>
+
+# mirror:
+#   service: Mirror
+#   primary: local
+#   mirrors: [ amazon, google, microsoft ]

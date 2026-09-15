@@ -1,0 +1,114 @@
+<% content_for :page_title, "System settings" %>
+<% content_for :page_sub do %>Mailer, storage, CDN, vcsi_rise and mobile settings — stored in the database<% end %>
+
+<%
+  tab_labels = {
+    "email" => "Email", "aws" => "AWS / S3", "cdn" => "CloudFront CDN", "vcsi" => "vcsi_rise API",
+    "mobile" => "Mobile app", "stores" => "Store enrollment", "urls" => "URLs & hosts",
+    "company" => "Company", "branding" => "Branding", "features" => "Features", "general" => "General"
+  }
+%>
+
+<div class="flex gap-2 mb-5 flex-wrap border-b border-slate-200">
+  <% @tabs.each do |tab| %>
+    <%= link_to (tab_labels[tab] || tab.titleize), admin_system_settings_path(tab: tab),
+          class: "px-3 py-2 text-sm font-medium -mb-px border-b-2 #{tab == @active_tab ? 'border-[#1f4b99] text-[#1f4b99]' : 'border-transparent text-slate-500 hover:text-slate-700'}" %>
+  <% end %>
+</div>
+
+<% rows = (@grouped[@active_tab] || []).sort_by(&:key) %>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <div class="px-5 py-3 border-b border-slate-200 flex items-center gap-3">
+    <h2 class="text-sm font-semibold flex-1"><%= tab_labels[@active_tab] || @active_tab.titleize %></h2>
+    <% status = rows.map(&:test_status).compact.uniq %>
+    <% if @active_tab.in?(%w[email vcsi]) && status.present? %>
+      <span class="text-[11px] font-semibold rounded px-2 py-0.5 <%= status.include?('success') ? 'bg-emerald-100 text-emerald-700' : status.include?('failed') ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600' %>">
+        <%= status.include?('success') ? 'Tested OK' : status.include?('failed') ? 'Test failed' : 'Untested' %>
+      </span>
+    <% end %>
+  </div>
+
+  <% if rows.empty? %>
+    <div class="px-5 py-8 text-sm text-slate-500 text-center">No settings in this category yet.</div>
+  <% else %>
+    <%= form_with url: admin_batch_update_system_settings_path, method: :patch, local: true do |f| %>
+      <%= hidden_field_tag :tab, @active_tab %>
+
+      <% if @active_tab == "email" %>
+        <%# Provider chooser up top, then only the relevant field group (Stimulus). %>
+        <% by_key = rows.index_by(&:key) %>
+        <div data-controller="settings-provider" class="divide-y divide-slate-100">
+          <% if by_key["email_provider"] %>
+            <div data-settings-provider-target="select-wrap">
+              <% provider = by_key["email_provider"] %>
+              <div class="px-5 py-3.5 grid grid-cols-1 md:grid-cols-3 gap-3 items-start bg-slate-50">
+                <div class="md:col-span-1">
+                  <label class="text-sm font-medium text-slate-700" for="settings_email_provider">Delivery method</label>
+                  <p class="text-[11px] text-slate-400 mt-0.5">Choose how the app sends email. Fields for the other method are hidden but kept.</p>
+                </div>
+                <div class="md:col-span-2">
+                  <select name="settings[email_provider]" id="settings_email_provider"
+                          data-settings-provider-target="select" data-action="settings-provider#change"
+                          class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+                    <% provider.select_options.each do |val, label| %>
+                      <option value="<%= val %>" <%= "selected" if provider.value.to_s == val %>><%= label %></option>
+                    <% end %>
+                  </select>
+                </div>
+              </div>
+            </div>
+          <% end %>
+
+          <div data-settings-provider-target="group" data-provider="mailgun">
+            <div class="px-5 pt-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Mailgun API</div>
+            <% rows.select { |s| s.key.start_with?("mailgun_") }.each do |setting| %>
+              <%= render "setting_field", setting: setting %>
+            <% end %>
+          </div>
+
+          <div data-settings-provider-target="group" data-provider="smtp">
+            <div class="px-5 pt-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">SMTP server</div>
+            <% rows.select { |s| s.key.start_with?("smtp_") }.each do |setting| %>
+              <%= render "setting_field", setting: setting %>
+            <% end %>
+          </div>
+
+          <%# Shared fields (From address, etc.) — always shown. %>
+          <% rows.reject { |s| s.key == "email_provider" || s.key.start_with?("mailgun_") || s.key.start_with?("smtp_") }.each do |setting| %>
+            <%= render "setting_field", setting: setting %>
+          <% end %>
+        </div>
+      <% else %>
+        <div class="divide-y divide-slate-100">
+          <% rows.each do |setting| %>
+            <%= render "setting_field", setting: setting %>
+          <% end %>
+        </div>
+      <% end %>
+
+      <div class="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center gap-2">
+        <div class="flex-1"></div>
+        <%= f.submit "Save changes",
+              class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-4 py-2 hover:bg-[#17386f] cursor-pointer" %>
+      </div>
+    <% end %>
+
+    <%# --- Test actions --- %>
+    <% if @active_tab == "email" %>
+      <div class="px-5 py-3 border-t border-slate-200 flex items-center gap-2">
+        <%= form_with url: admin_test_email_system_settings_path, method: :post, local: true, class: "flex items-center gap-2" do %>
+          <%= text_field_tag :to, current_user.email, placeholder: "recipient@example.com",
+                class: "rounded-md border border-slate-300 px-3 py-2 text-sm w-64" %>
+          <%= submit_tag "Send test email",
+                class: "rounded-md border border-slate-300 text-sm font-semibold px-3 py-2 hover:bg-slate-100 cursor-pointer" %>
+        <% end %>
+      </div>
+    <% elsif @active_tab == "vcsi" %>
+      <div class="px-5 py-3 border-t border-slate-200">
+        <%= button_to "Test connection", admin_test_connection_system_settings_path, method: :post,
+              class: "rounded-md border border-slate-300 text-sm font-semibold px-3 py-2 hover:bg-slate-100 cursor-pointer" %>
+      </div>
+    <% end %>
+  <% end %>
+</div>

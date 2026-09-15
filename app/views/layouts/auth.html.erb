@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= content_for(:title) || "Sign in — SFA Console" %></title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <%= stylesheet_link_tag "tailwind", "data-turbo-track": "reload" %>
+    <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
+    <%= javascript_importmap_tags %>
+  </head>
+  <body class="bg-[#0f1b2d] text-slate-900 antialiased">
+    <div class="min-h-screen grid place-items-center px-4">
+      <div class="w-full max-w-sm">
+        <div class="flex items-center gap-2.5 justify-center mb-6">
+          <div class="grid place-items-center w-9 h-9 rounded-md bg-[#2f6fd0] text-white font-bold text-sm">SF</div>
+          <div class="text-white text-lg font-semibold">SFA Console</div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-xl p-6">
+          <% flash.each do |level, message| %>
+            <div class="mb-4 rounded-lg border px-3 py-2 text-sm <%= flash_class(level) %>"><%= message %></div>
+          <% end %>
+          <%= yield %>
+        </div>
+
+        <p class="text-center text-[11px] text-slate-500 mt-4">FMCG Sales Force Automation — backend console</p>
+      </div>
+    </div>
+  </body>
+</html>

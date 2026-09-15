@@ -1,0 +1,62 @@
+<%= form_with model: seller, local: true do |f| %>
+  <%= render "shared/form_errors", model: seller %>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <%= f.label :seller_code, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :seller_code, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :name, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :name, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <% if current_user.all_branches? %>
+      <div>
+        <%= f.label :branch_id, "Branch", class: "block text-sm font-medium text-slate-700 mb-1" %>
+        <%= f.collection_select :branch_id, Branch.order(:name), :id, :name, {}, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+      </div>
+    <% end %>
+    <div>
+      <%= f.label :status, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.select :status, Seller.statuses.keys.map { |s| [s.titleize, s] }, {}, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :device_id, "Device ID", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :device_id, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :pin, "Mobile PIN", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.password_field :pin, autocomplete: "new-password", placeholder: (f.object.pin_set? ? "•••• (set — leave blank to keep)" : "Set a PIN for the app"), class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+      <p class="text-[11px] text-slate-400 mt-1">The seller signs into the Rise Force app with their seller code + this PIN.</p>
+    </div>
+    <div>
+      <%= f.label :vcsi_sales_rep_ref, "vcsi_rise sales rep code", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :vcsi_sales_rep_ref, placeholder: "e.g. 538614", class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+      <p class="text-[11px] text-slate-400 mt-1">Join key to vcsi_rise sellout & targets (sales_rep code).</p>
+    </div>
+    <div>
+      <%= f.label :user_id, "Assigned console user", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.collection_select :user_id, User.order(:first_name), :id, :full_name, { include_blank: "— none —" },
+            class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm", data: { controller: "tom-select", "tom-select-placeholder-value": "Search users…" } %>
+    </div>
+    <div>
+      <%= f.label :supervisor_name, "Supervisor", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :supervisor_name, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :gsm_name, "GSM", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :gsm_name, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :om_name, "OM", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :om_name, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :sales_target, "Sales target", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.number_field :sales_target, step: "0.01", class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+  </div>
+  <div class="mt-5 flex items-center gap-2">
+    <%= f.submit(seller.persisted? ? "Save changes" : "Create seller", class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-4 py-2 hover:bg-[#17386f] cursor-pointer") %>
+    <%= link_to "Cancel", sellers_path, class: "text-sm text-slate-500 hover:underline px-2" %>
+  </div>
+<% end %>

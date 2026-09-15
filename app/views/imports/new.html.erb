@@ -1,0 +1,51 @@
+<% content_for :page_title, "Bulk upload — #{@kind.titleize}" %>
+
+<div class="rounded-xl border border-slate-200 bg-white p-6 mx-auto max-w-xl">
+  <p class="text-sm text-slate-600 mb-4">Upload a CSV to create or update <%= @kind %> in bulk. Rows that fail validation are skipped and listed in <%= link_to "Import logs", job_logs_path, class: "text-[#1f4b99] hover:underline" %> as a downloadable error report.</p>
+
+  <div class="rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600 mb-4 font-mono">
+    <% if @kind == "products" %>
+      itemkey, desc1, desc2, brand_code, category_code, item_tier, abc_class, stock_uom, purchase_uom, selling_uom, items_per_case, it_barcode, cs_barcode, sw_barcode, item_cost, case_cost, tax, status
+    <% elsif @kind == "product_channels" %>
+      item_key, channel_code, available
+    <% elsif @kind == "promos" %>
+      code, name, mechanic, basis, it_barcode, tiers, min_qty, reward_qty, reward_barcode, channel_code, category, branch_code, start_date, end_date, per_store_limit, status
+    <% else %>
+      store_code, name, owner_name, address, contact_number, latitude, longitude, branch_code, channel_code, category, seller_code, route_code, route_name, vcsi_customer_ref, segment, chain, sub_chain, distribution_type, tin, visit_frequency, week_pattern, visit_day, visit_sequence
+    <% end %>
+  </div>
+  <% if @kind == "stores" %>
+    <p class="text-xs text-slate-500 mb-2">Keyed on <strong>store_code</strong>: a new code creates a store, an existing code updates it. Blank cells keep the current value (so a partial re-upload never wipes data). <code>vcsi_customer_ref</code> = the vcsi_rise <code>customer_id</code> for actual sellout &amp; derived targets.</p>
+    <p class="text-xs text-slate-500 mb-2"><strong>Route plan &amp; seller</strong>: a store reaches a seller's daily call list through its <strong>route</strong>. Set <code>seller_code</code> (who services it) and <code>route_code</code> (their beat — <code>route_name</code> optional, created for that seller if it doesn't exist yet). The visit block below is that store's schedule <em>within</em> the route — there is no separate route-plan file.</p>
+    <ul class="text-xs text-slate-500 mb-4 space-y-0.5 list-disc pl-4">
+      <li><code>visit_frequency</code>: <code>f4</code> = weekly · <code>f2</code> = every other week (fortnightly).</li>
+      <li><code>week_pattern</code>: <code>every_week</code> (use with f4) · <code>weeks_1_3</code> or <code>weeks_2_4</code> (use with f2).</li>
+      <li><code>visit_day</code>: <code>mon</code>, <code>tue</code>, <code>wed</code>, <code>thu</code>, <code>fri</code>, <code>sat</code> (no Sunday).</li>
+      <li><code>visit_sequence</code>: the stop order on that day (1, 2, 3 …).</li>
+      <li><code>category</code>: <code>platinum</code> / <code>gold</code> / <code>silver</code> / <code>bronze</code> (A/B/C/D — sets price list).</li>
+    </ul>
+  <% elsif @kind == "product_channels" %>
+    <p class="text-xs text-slate-500 mb-4"><strong>item_key</strong> must exist in the product master and <strong>channel_code</strong> in the channel master — rows referencing unknown keys are rejected. Each row adds a SKU to that channel's list (idempotent). Once a channel has a list, the app shows <em>only</em> those SKUs for stores on that channel; a channel with no list yet shows all SKUs. Set <code>available</code> to <code>false</code> to remove a SKU from a channel.</p>
+  <% elsif @kind == "promos" %>
+    <p class="text-xs text-slate-500 mb-2">Keyed on <strong>code</strong> (upsert). <strong>it_barcode</strong> scopes the deal to every item_key sharing that barcode (must exist in the product master). Optional <code>channel_code</code>/<code>category</code>/<code>branch_code</code> restrict who sees it — for several channels, <strong>separate them with a semicolon</strong> in the one cell (e.g. <code>HFS WHOLESALE SS - Gold;HFS WHOLESALE OTC - Gold</code>). The example CSV has one row per mechanic with a <code>notes</code> column.</p>
+    <ul class="text-xs text-slate-500 mb-4 space-y-0.5 list-disc pl-4">
+      <li><code>tiered_discount</code> — volume deal. Set <code>basis</code>=<code>pieces</code> or <code>amount</code> + <code>tiers</code> = <code>min:value|min:value</code> (value = rate <code>0.04</code>=4% for pieces, or peso <code>100</code> for spend). e.g. <code>18:0.04|72:0.07</code>, <code>1200:100|3000:300</code>.</li>
+      <li><code>buy_x_get_y</code> / <code>free_goods</code> — <code>min_qty</code> pcs → <code>reward_qty</code> free (optional <code>reward_barcode</code> for a different SKU).</li>
+      <li><code>bundle_price</code> — <code>min_qty</code> pcs for a fixed <code>fixed_price</code> (e.g. 3 for ₱100).</li>
+      <li><code>discount_percent</code> — flat <code>discount_rate</code> (0.05 = 5%). <code>discount_amount</code> — flat <code>discount_amount</code> ₱ off per piece.</li>
+    </ul>
+  <% end %>
+
+  <div class="rounded-lg border border-slate-200 bg-white p-3 mb-4 flex items-center gap-3">
+    <div class="flex-1 text-xs text-slate-600">Not sure of the format? Download an example filled with real values from your data, edit it, then upload.</div>
+    <%= link_to "↓ Example CSV", sample_import_path(@kind), class: "shrink-0 rounded-md border border-slate-300 text-sm font-semibold px-3 py-2 hover:bg-slate-50" %>
+  </div>
+
+  <%= form_with url: imports_path(@kind), method: :post, local: true, multipart: true do %>
+    <%= file_field_tag :file, accept: ".csv", class: "block w-full text-sm text-slate-600 mb-4" %>
+    <div class="flex items-center gap-2">
+      <%= submit_tag "Upload CSV", class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-4 py-2 hover:bg-[#17386f] cursor-pointer" %>
+      <%= link_to "Cancel", @back_path, class: "text-sm text-slate-500 hover:underline px-2" %>
+    </div>
+  <% end %>
+</div>

@@ -1,0 +1,59 @@
+# examples:
+#   periodic_cleanup:
+#     class: CleanSoftDeletedRecordsJob
+#     queue: background
+#     args: [ 1000, { batch_size: 500 } ]
+#     schedule: every hour
+#   periodic_cleanup_with_command:
+#     command: "SoftDeletedRecord.due.delete_all"
+#     priority: 2
+#     schedule: at 5am every day
+
+production:
+  clear_solid_queue_finished_jobs:
+    command: "SolidQueue::Job.clear_finished_in_batches(sleep_between_batches: 0.3)"
+    schedule: every hour at minute 12
+
+  # ---- vcsi_rise syncs (all read-only pulls; source of truth is vcsi_rise) ----
+  # Seller master + monthly target, keyed on sales_rep. Once a day is enough
+  # (targets change rarely).
+  vcsi_target_sync:
+    class: Vcsi::TargetSyncJob
+    queue: default
+    schedule: "0 6 * * *" # 06:00 daily
+
+  # Seller actual sellout (GIV*1.12). Refreshed a few times a day as invoice
+  # uploads land in vcsi_rise.
+  vcsi_sellout_sync:
+    class: Vcsi::SelloutSyncJob
+    queue: default
+    schedule: "0 6,12,18 * * *" # 06:00, 12:00, 18:00 daily
+
+  # Per-store actual sellout (customer_id grain). Same cadence, offset a few
+  # minutes after the seller sellout sync.
+  vcsi_store_sellout_sync:
+    class: Vcsi::StoreSelloutSyncJob
+    queue: default
+    schedule: "15 6,12,18 * * *" # 06:15, 12:15, 18:15 daily
+
+  # Per-store per-SKU confirmed sellout (net of credit notes) — the "carried"
+  # truth for must-carry compliance. Same cadence as store sellout, offset after.
+  vcsi_store_sku_sellout_sync:
+    class: Vcsi::StoreSkuSelloutSyncJob
+    queue: default
+    schedule: "20 6,12,18 * * *" # 06:20, 12:20, 18:20 daily
+
+  # Derive store targets from vcsi_rise history (trailing avg + growth). Daily
+  # so a newly-linked store gets a target the next morning without waiting for
+  # month rollover; the trailing window itself only changes month to month.
+  vcsi_store_target_compute:
+    class: Vcsi::StoreTargetComputeJob
+    queue: default
+    schedule: "30 5 * * *" # 05:30 daily
+
+  # Auto-close visits left in-progress (forgotten check-out + duplicate
+  # check-ins) so the Field Visits report shows one visit per store.
+  close_stale_visits:
+    class: Visits::CloseStaleVisitsJob
+    queue: default
+    schedule: "0 1 * * *" # 01:00 daily (after the day's visits are done)

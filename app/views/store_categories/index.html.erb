@@ -1,0 +1,28 @@
+<% content_for :page_title, "Store categories" %>
+<% content_for :page_sub do %>Managed category list — each category is a row in the pricing matrix<% end %>
+<% content_for :page_actions do %>
+  <% if can?(:store_category, :create) %>
+    <%= link_to "New category", new_store_category_path, class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
+  <% end %>
+<% end %>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <table class="w-full border-collapse min-w-[560px]">
+    <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+      <th class="px-4 py-2.5">Code</th><th class="px-4 py-2.5">Letter</th><th class="px-4 py-2.5">Name</th><th class="px-4 py-2.5">Order</th><th class="px-4 py-2.5">Stores</th><th class="px-4 py-2.5">Active</th><th></th>
+    </tr></thead>
+    <tbody>
+      <% @categories.each do |c| %>
+        <tr class="border-b border-slate-100 hover:bg-slate-50">
+          <td class="px-4 py-3 font-mono text-xs text-slate-600"><%= c.code %></td>
+          <td class="px-4 py-3 text-sm font-semibold"><%= c.letter %></td>
+          <td class="px-4 py-3 text-sm font-medium"><%= c.name %></td>
+          <td class="px-4 py-3 text-sm text-slate-600"><%= c.sort_order %></td>
+          <td class="px-4 py-3 text-sm text-slate-600"><%= c.stores.count %></td>
+          <td class="px-4 py-3"><span class="rounded-full text-[11px] font-semibold px-2 py-0.5 <%= c.active? ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600' %>"><%= c.active? ? "Active" : "Inactive" %></span></td>
+          <td class="px-4 py-3 text-right"><% if can?(:store_category, :update) %><%= link_to "Edit", edit_store_category_path(c), class: "text-sm font-semibold text-[#1f4b99] hover:underline" %><% end %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>

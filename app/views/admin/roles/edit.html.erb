@@ -1,0 +1,3 @@
+<% content_for :page_title, "Edit role — #{@role.name.titleize}" %>
+<% content_for :page_sub do %>Rename or adjust what this role can do<% end %>
+<%= render "form", role: @role %>

@@ -1,0 +1,67 @@
+<% content_for :page_title, "Users & roles" %>
+<% content_for :page_sub do %>Backend console access<% end %>
+<% content_for :page_actions do %>
+  <%= link_to "Permission matrix", admin_roles_path,
+        class: "rounded-md border border-slate-300 bg-white text-slate-700 text-sm font-semibold px-3 py-2 hover:bg-slate-50" %>
+  <% if can?(:user, :create) %>
+    <%= link_to "New user", new_admin_user_path,
+          class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
+  <% end %>
+<% end %>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse min-w-[720px]">
+      <thead>
+        <tr class="bg-slate-50 border-b border-slate-200 text-left">
+          <th class="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Name</th>
+          <th class="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Email</th>
+          <th class="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Roles</th>
+          <th class="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Scope</th>
+          <th class="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Last active</th>
+          <th class="px-4 py-2.5"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @users.each do |user| %>
+          <tr class="border-b border-slate-100 hover:bg-slate-50 align-top">
+            <td class="px-4 py-3 text-sm font-medium"><%= user.full_name %></td>
+            <td class="px-4 py-3 text-sm text-slate-600"><%= user.email %></td>
+            <td class="px-4 py-3">
+              <div class="flex flex-wrap gap-1.5 items-center">
+                <% user.roles.each do |role| %>
+                  <span class="inline-flex items-center gap-1 rounded-full bg-blue-50 text-[#1f4b99] text-[11px] font-semibold px-2 py-0.5">
+                    <%= role.name.titleize %>
+                    <% if can?(:user, :update) %>
+                      <%= button_to "×", remove_role_admin_user_path(user, role_id: role.id), method: :patch,
+                            form_class: "inline", class: "text-[#1f4b99]/60 hover:text-red-600", data: { turbo_confirm: "Remove #{role.name}?" } %>
+                    <% end %>
+                  </span>
+                <% end %>
+                <% if can?(:user, :update) %>
+                  <%= form_with url: add_role_admin_user_path(user), method: :patch, class: "inline" do %>
+                    <select name="role_id" onchange="this.form.requestSubmit()"
+                            class="rounded border border-slate-200 text-[11px] px-1.5 py-0.5 text-slate-500">
+                      <option value="">+ role</option>
+                      <% (@roles - user.roles).each do |role| %>
+                        <option value="<%= role.id %>"><%= role.name.titleize %></option>
+                      <% end %>
+                    </select>
+                  <% end %>
+                <% end %>
+              </div>
+            </td>
+            <td class="px-4 py-3 text-sm text-slate-600"><%= user.all_branches? ? "All branches" : user.branch&.name %></td>
+            <td class="px-4 py-3 text-xs text-slate-500"><%= user.last_sign_in_at&.strftime("%d %b %Y %H:%M") || "—" %></td>
+            <td class="px-4 py-3 text-right">
+              <% if can?(:user, :update) %>
+                <%= link_to "Edit", edit_admin_user_path(user), class: "text-sm font-semibold text-[#1f4b99] hover:underline" %>
+              <% end %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+  <div class="px-4 py-3"><%= paginate @users if respond_to?(:paginate) %></div>
+</div>

@@ -1,0 +1,32 @@
+<% content_for :page_title, @order.order_number %>
+<div class="rounded-xl border border-slate-200 bg-white p-6 mx-auto max-w-2xl space-y-2 text-sm mb-4">
+  <div><span class="text-slate-500 w-40 inline-block">Store</span><%= @order.store.name %> (<%= @order.store.code %>)</div>
+  <div><span class="text-slate-500 w-40 inline-block">Seller</span><%= @order.seller.name %></div>
+  <div><span class="text-slate-500 w-40 inline-block">Ordered</span><%= @order.ordered_at&.strftime("%d %b %Y %H:%M") %></div>
+  <div><span class="text-slate-500 w-40 inline-block">Status</span><%= @order.status.titleize %></div>
+  <div><span class="text-slate-500 w-40 inline-block">Batch</span><%= @order.order_batch&.batch_number || "—" %></div>
+  <div><span class="text-slate-500 w-40 inline-block">Pricing version</span>v<%= @order.pricing_version&.version_number %></div>
+</div>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <div class="px-4 py-3 border-b border-slate-200 text-sm font-semibold">Lines</div>
+  <table class="w-full border-collapse min-w-[640px]">
+    <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+      <th class="px-4 py-2.5">SKU</th><th class="px-4 py-2.5">Product</th><th class="px-4 py-2.5">Type</th>
+      <th class="px-4 py-2.5 text-right">Qty</th><th class="px-4 py-2.5 text-right">Unit</th><th class="px-4 py-2.5 text-right">Total</th>
+    </tr></thead>
+    <tbody>
+      <% @lines.each do |l| %>
+        <tr class="border-b border-slate-100">
+          <td class="px-4 py-2.5 font-mono text-xs"><%= l.product.sku %></td>
+          <td class="px-4 py-2.5 text-sm"><%= l.product.description %></td>
+          <td class="px-4 py-2.5 text-xs"><%= l.line_promo_free_good? ? "Free good" : "Sale" %></td>
+          <td class="px-4 py-2.5 text-right font-mono text-sm"><%= l.quantity.to_i %></td>
+          <td class="px-4 py-2.5 text-right font-mono text-sm"><%= number_with_precision(l.unit_price, precision: 2) %></td>
+          <td class="px-4 py-2.5 text-right font-mono text-sm"><%= number_with_precision(l.line_total, precision: 2) %></td>
+        </tr>
+      <% end %>
+    </tbody>
+    <tfoot><tr class="border-t border-slate-200"><td colspan="5" class="px-4 py-2.5 text-right text-sm font-semibold">Total</td><td class="px-4 py-2.5 text-right font-mono text-sm font-semibold"><%= number_with_precision(@order.total_amount, precision: 2) %></td></tr></tfoot>
+  </table>
+</div>

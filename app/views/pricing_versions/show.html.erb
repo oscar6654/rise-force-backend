@@ -1,0 +1,32 @@
+<% content_for :page_title, "Pricing v#{@version.version_number}" %>
+<% content_for :page_actions do %>
+  <% if @version.draft? && can?(:pricing, :update) %>
+    <%= link_to "Edit", edit_pricing_version_path(@version), class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
+  <% end %>
+<% end %>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <div class="px-4 py-3 border-b border-slate-200 text-sm">
+    <span class="font-semibold"><%= @version.status.titleize %></span> · effective <%= @version.effective_date.strftime("%d %b %Y") %>
+    <% if @version.published_at %> · published <%= @version.published_at.strftime("%d %b %Y") %><% end %>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse min-w-[560px]">
+      <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+        <th class="px-4 py-2.5">Store category</th>
+        <% @tiers.each do |tier| %><th class="px-4 py-2.5 text-center"><%= tier.name %></th><% end %>
+      </tr></thead>
+      <tbody>
+        <% @categories.each do |cat| %>
+          <tr class="border-b border-slate-100">
+            <td class="px-4 py-3 text-sm font-medium"><%= cat.label %></td>
+            <% @tiers.each do |tier| %>
+              <% rule = @matrix[[cat.id, tier.id]] %>
+              <td class="px-4 py-3 text-center font-mono text-sm"><%= rule ? "#{(rule.markup_rate * 100).round(2)}%" : "—" %></td>
+            <% end %>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+</div>

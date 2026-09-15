@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+/* --- Native <select> caret: give it padding so it isn't jammed in the
+   right corner (no @tailwindcss/forms plugin, so style it here). --- */
+select:not([multiple]) {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  padding-right: 2rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 1rem;
+}
+
+/* --- Tom Select theming to match the console (blue accent, slate borders) --- */
+/* Tom Select copies the <select>'s Tailwind border/padding classes onto the
+   wrapper; strip them so only .ts-control draws the box (no double border). */
+.ts-wrapper {
+  min-width: 0;
+  border: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+.ts-control {
+  border: 1px solid #d0d5dd !important;
+  border-radius: 0.375rem !important;
+  padding: 0.4rem 0.6rem !important;
+  font-size: 0.875rem;
+  box-shadow: none;
+  background: #fff;
+}
+.ts-wrapper.focus .ts-control {
+  border-color: #1f4b99;
+  box-shadow: 0 0 0 1px #1f4b99;
+}
+.ts-dropdown {
+  border-color: #d0d5dd;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+}
+.ts-dropdown .active { background: #eef2f9; color: #1f4b99; }
+.ts-control .item {
+  background: #eef2f9;
+  color: #1f4b99;
+  border-radius: 0.25rem;
+}

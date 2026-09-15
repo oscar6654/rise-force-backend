@@ -1,0 +1,25 @@
+<% content_for :page_title, "Brands" %>
+<% content_for :page_sub do %>Brand master — used by products and searchable in the product picker<% end %>
+<% content_for :page_actions do %>
+  <% if can?(:brand, :create) %>
+    <%= link_to "New brand", new_brand_path, class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
+  <% end %>
+<% end %>
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <table class="w-full border-collapse min-w-[520px]">
+    <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+      <th class="px-4 py-2.5">Code</th><th class="px-4 py-2.5">Name</th><th class="px-4 py-2.5">Products</th><th class="px-4 py-2.5">Status</th><th></th>
+    </tr></thead>
+    <tbody>
+      <% @brands.each do |b| %>
+        <tr class="border-b border-slate-100 hover:bg-slate-50">
+          <td class="px-4 py-3 font-mono text-xs text-slate-600"><%= b.code %></td>
+          <td class="px-4 py-3 text-sm font-medium"><%= b.name %></td>
+          <td class="px-4 py-3 text-sm text-slate-600"><%= b.products.count %></td>
+          <td class="px-4 py-3"><span class="rounded-full text-[11px] font-semibold px-2 py-0.5 <%= b.active? ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600' %>"><%= b.status.titleize %></span></td>
+          <td class="px-4 py-3 text-right"><% if can?(:brand, :update) %><%= link_to "Edit", edit_brand_path(b), class: "text-sm font-semibold text-[#1f4b99] hover:underline" %><% end %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>

@@ -1,0 +1,50 @@
+<% content_for :page_title, "Channel availability" %>
+<% content_for :page_sub do %>Which channels each SKU is offered in — controls what sellers see per store<% end %>
+<% content_for :page_actions do %>
+  <% if can?(:product, :create) %>
+    <%= link_to "↑ Upload mapping", new_import_path("product_channels"), class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
+  <% end %>
+<% end %>
+
+<div class="rounded-xl border border-slate-200 bg-white p-3 mb-4 text-sm text-slate-600">
+  <strong><%= @configured_channels %></strong> of <%= @total_channels %> channels have a curated SKU list.
+  <span class="text-slate-400">A channel with a list shows <em>only</em> those SKUs in the app; a channel with no list yet shows all SKUs until you upload one.</span>
+</div>
+
+<div class="flex flex-wrap gap-2 mb-4">
+  <%= link_to "All channels", product_channels_path(q: params[:q]),
+        class: "rounded-full px-3 py-1.5 text-xs font-semibold border #{@channel.nil? ? 'bg-[#1f4b99] text-white border-[#1f4b99]' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}" %>
+  <% @channels.each do |c| %>
+    <%= link_to product_channels_path(channel_id: c.id, q: params[:q]),
+          class: "rounded-full px-3 py-1.5 text-xs font-semibold border #{@channel&.id == c.id ? 'bg-[#1f4b99] text-white border-[#1f4b99]' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}" do %>
+      <%= c.name %> <span class="<%= @channel&.id == c.id ? 'text-white/80' : 'text-slate-400' %>"><%= @per_channel[c.id] || 0 %></span>
+    <% end %>
+  <% end %>
+</div>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <%= form_with url: product_channels_path, method: :get, local: true, class: "px-4 py-3 border-b border-slate-200 flex flex-wrap gap-2 items-center" do %>
+    <%= hidden_field_tag :channel_id, params[:channel_id] %>
+    <%= text_field_tag :q, params[:q], placeholder: "Search SKU or description", class: "rounded-md border border-slate-300 px-3 py-2 text-sm w-64" %>
+    <%= submit_tag "Search", class: "rounded-md border border-slate-300 text-sm px-3 py-2 hover:bg-slate-50 cursor-pointer" %>
+    <span class="text-xs text-slate-500 ml-auto"><%= @mappings.total_count %> mappings</span>
+  <% end %>
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse min-w-[640px]">
+      <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+        <th class="px-4 py-2.5">Item key</th><th class="px-4 py-2.5">Product</th><th class="px-4 py-2.5">Channel</th>
+      </tr></thead>
+      <tbody>
+        <% @mappings.each do |m| %>
+          <tr class="border-b border-slate-100 hover:bg-slate-50">
+            <td class="px-4 py-3 font-mono text-xs text-slate-600"><%= m.product&.sku %></td>
+            <td class="px-4 py-3 text-sm"><%= m.product&.description %></td>
+            <td class="px-4 py-3 text-sm"><span class="rounded px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-700"><%= m.channel&.name %></span></td>
+          </tr>
+        <% end %>
+        <% if @mappings.empty? %><tr><td colspan="3" class="px-4 py-8 text-center text-sm text-slate-500">No channel mappings yet — all SKUs are visible in every channel. Upload a mapping to restrict specific SKUs.</td></tr><% end %>
+      </tbody>
+    </table>
+  </div>
+  <div class="px-4 py-3"><%= paginate @mappings if respond_to?(:paginate) %></div>
+</div>

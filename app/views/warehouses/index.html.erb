@@ -1,0 +1,26 @@
+<% content_for :page_title, "Warehouse master" %>
+<% content_for :page_actions do %>
+  <% if can?(:warehouse, :create) %>
+    <%= link_to "New warehouse", new_warehouse_path, class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
+  <% end %>
+<% end %>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <table class="w-full border-collapse min-w-[560px]">
+    <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+      <th class="px-4 py-2.5">Code</th><th class="px-4 py-2.5">Name</th><th class="px-4 py-2.5">Branch</th><th class="px-4 py-2.5">Status</th><th></th>
+    </tr></thead>
+    <tbody>
+      <% @warehouses.each do |w| %>
+        <tr class="border-b border-slate-100 hover:bg-slate-50">
+          <td class="px-4 py-3 font-mono text-xs text-slate-600"><%= w.whs_code %></td>
+          <td class="px-4 py-3 text-sm font-medium"><%= w.wh_name %></td>
+          <td class="px-4 py-3 text-sm text-slate-600"><%= w.branch&.name || "—" %></td>
+          <td class="px-4 py-3"><span class="rounded-full text-[11px] font-semibold px-2 py-0.5 <%= w.active? ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600' %>"><%= w.status.titleize %></span></td>
+          <td class="px-4 py-3 text-right"><% if can?(:warehouse, :update) %><%= link_to "Edit", edit_warehouse_path(w), class: "text-sm font-semibold text-[#1f4b99] hover:underline" %><% end %></td>
+        </tr>
+      <% end %>
+      <% if @warehouses.empty? %><tr><td colspan="5" class="px-4 py-8 text-center text-sm text-slate-500">No warehouses yet.</td></tr><% end %>
+    </tbody>
+  </table>
+</div>

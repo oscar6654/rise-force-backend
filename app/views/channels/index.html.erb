@@ -1,0 +1,26 @@
+<% content_for :page_title, "Channel master" %>
+<% content_for :page_actions do %>
+  <% if can?(:channel, :create) %>
+    <%= link_to "New channel", new_channel_path, class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
+  <% end %>
+<% end %>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <% @channels.each do |channel| %>
+    <div class="rounded-xl border border-slate-200 bg-white p-4">
+      <div class="flex items-center gap-2 mb-2">
+        <span class="font-mono text-xs text-[#1f4b99] bg-blue-50 rounded px-2 py-0.5 font-semibold"><%= channel.code %></span>
+        <div class="flex-1 text-sm font-semibold"><%= channel.name %></div>
+        <% if channel.inactive? %><span class="text-[10px] text-slate-400">inactive</span><% end %>
+      </div>
+      <p class="text-xs text-slate-500 leading-relaxed mb-3 min-h-[2rem]"><%= channel.description %></p>
+      <div class="flex items-center gap-4 pt-3 border-t border-slate-100 text-sm">
+        <div><div class="text-[10px] uppercase text-slate-400">Stores</div><div class="font-semibold"><%= channel.stores.count %></div></div>
+        <div><div class="text-[10px] uppercase text-slate-400">Planograms</div><div class="font-semibold"><%= channel.planograms.count %></div></div>
+        <div class="flex-1 text-right self-end">
+          <% if can?(:channel, :update) %><%= link_to "Edit", edit_channel_path(channel), class: "text-sm font-semibold text-[#1f4b99] hover:underline" %><% end %>
+        </div>
+      </div>
+    </div>
+  <% end %>
+</div>

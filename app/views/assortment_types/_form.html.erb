@@ -1,0 +1,32 @@
+<%= form_with model: assortment_type, url: (assortment_type.persisted? ? assortment_type_path(assortment_type) : assortment_types_path), local: true do |f| %>
+  <%= render "shared/form_errors", model: assortment_type %>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <%= f.label :name, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :name, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :code, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <% if assortment_type.persisted? %>
+        <%= f.text_field :code, value: assortment_type.code, disabled: true, class: "w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500" %>
+        <p class="text-[11px] text-slate-400 mt-1">The code is fixed after creation — incentive schemes reference it.</p>
+      <% else %>
+        <%= f.text_field :code, placeholder: "e.g. holiday_push", class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+        <p class="text-[11px] text-slate-400 mt-1">Blank-safe: spaces become underscores. This is what schemes reference.</p>
+      <% end %>
+    </div>
+    <div>
+      <%= f.label :position, "Order", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.number_field :position, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div class="flex items-end">
+      <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+        <%= f.check_box :active, class: "rounded border-slate-300" %> Active
+      </label>
+    </div>
+  </div>
+  <div class="mt-5 flex items-center gap-2">
+    <%= f.submit(assortment_type.persisted? ? "Save changes" : "Create type", class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-4 py-2 hover:bg-[#17386f] cursor-pointer") %>
+    <%= link_to "Cancel", assortment_types_path, class: "text-sm text-slate-500 hover:underline px-2" %>
+  </div>
+<% end %>

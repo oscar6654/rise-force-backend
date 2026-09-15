@@ -1,0 +1,44 @@
+<% content_for :page_title, (@seller&.name || "Unassigned") %>
+<% content_for :page_sub do %><%= @seller&.branch&.name %> · assortment compliance detail<% end %>
+<% content_for :page_actions do %>
+  <%= link_to "← All sellers", compliance_index_path(request.query_parameters.except(:page)), class: "text-sm text-[#1f4b99] hover:underline" %>
+<% end %>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <div class="px-4 py-3 border-b border-slate-200 flex items-center gap-3">
+    <h2 class="text-sm font-semibold flex-1">Stores below <%= @threshold %>% compliance</h2>
+    <span class="text-xs text-slate-500"><%= @rows.total_count %> stores</span>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse min-w-[820px]">
+      <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+        <th class="px-4 py-2.5">Store</th><th class="px-4 py-2.5">Category</th>
+        <th class="px-4 py-2.5 text-right">Carried</th><th class="px-4 py-2.5 w-40">Compliance</th><th class="px-4 py-2.5">Missing SKUs</th>
+      </tr></thead>
+      <tbody>
+        <% @rows.each do |r| %>
+          <% s = r[:store] %>
+          <tr class="border-b border-slate-100 hover:bg-slate-50 align-top">
+            <td class="px-4 py-3 text-sm"><%= link_to s.name, store_path(s), class: "text-[#1f4b99] hover:underline" %> <span class="text-[11px] text-slate-400 font-mono"><%= s.code %></span></td>
+            <td class="px-4 py-3 text-sm text-slate-600"><%= s.store_category&.label || s.category %></td>
+            <td class="px-4 py-3 text-right font-mono text-sm"><%= r[:carried] %>/<%= r[:must] %></td>
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-2">
+                <div class="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
+                  <div class="h-2 rounded-full <%= r[:pct] >= 75 ? 'bg-amber-400' : 'bg-red-500' %>" style="width: <%= r[:pct] %>%"></div>
+                </div>
+                <span class="text-xs font-semibold <%= r[:pct] >= 75 ? 'text-amber-700' : 'text-red-600' %>"><%= r[:pct] %>%</span>
+              </div>
+            </td>
+            <td class="px-4 py-3 text-xs text-slate-600">
+              <% names = r[:gap_ids].map { |id| @gap_skus[id] }.compact %>
+              <%= names.first(8).join(", ") %><% if names.size > 8 %> <span class="text-slate-400">+<%= names.size - 8 %> more</span><% end %>
+            </td>
+          </tr>
+        <% end %>
+        <% if @rows.empty? %><tr><td colspan="5" class="px-4 py-8 text-center text-sm text-slate-500">No stores below <%= @threshold %>% for this seller.</td></tr><% end %>
+      </tbody>
+    </table>
+  </div>
+  <div class="px-4 py-3"><%= paginate @rows if respond_to?(:paginate) %></div>
+</div>

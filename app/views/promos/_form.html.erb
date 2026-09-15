@@ -1,0 +1,115 @@
+<%= form_with model: promo, local: true, data: { controller: "promo-mechanic" } do |f| %>
+  <%= render "shared/form_errors", model: promo %>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <%= f.label :code, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :code, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :name, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :name, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :mechanic_type, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.select :mechanic_type, Promo.mechanic_types.keys.map { |m| [m.titleize, m] }, {},
+            class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm",
+            data: { "promo-mechanic-target": "type", action: "change->promo-mechanic#refresh" } %>
+    </div>
+    <div>
+      <%= f.label :status, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.select :status, Promo.statuses.keys.map { |s| [s.titleize, s] }, {}, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :start_date, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.date_field :start_date, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :end_date, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.date_field :end_date, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :per_store_limit, "Avails per store", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.number_field :per_store_limit, min: 0, placeholder: "blank = unlimited", class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+      <p class="text-xs text-slate-500 mt-1">Max times a store can avail this promo within its start–end window. Blank or 0 = unlimited.</p>
+    </div>
+    <div class="md:col-span-2">
+      <%= f.label :description, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_area :description, rows: 2, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+  </div>
+
+  <%# ---- Eligibility (who can avail) — same scoping as the CSV upload ---- %>
+  <% el = promo.promo_eligibilities.first %>
+  <div class="mt-6 pt-4 border-t border-slate-100">
+    <div class="text-sm font-semibold text-slate-700 mb-1">Who can avail (eligibility)</div>
+    <p class="text-xs text-slate-500 mb-3">Leave any blank for "all". Set them to <strong>lock</strong> the promo — a store must match every value set (e.g. Channel = HFS WHOLESALE SS - Gold). Matches the <code>channel_code</code> / <code>category</code> / <code>branch_code</code> columns in the CSV upload.</p>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Channel(s)</label>
+        <% el_channel_ids = promo.promo_eligibilities.map(&:channel_id).compact %>
+        <%= select_tag "promo[eligibility_channel_ids][]",
+              options_from_collection_for_select(Channel.order(:name), :id, :name, el_channel_ids),
+              multiple: true, size: 4, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+        <p class="text-[11px] text-slate-400 mt-1">None = all channels. Hold Ctrl/⌘ to pick several — the promo covers every selected channel.</p>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Store category</label>
+        <%= select_tag "promo[eligibility_store_category_ref_id]",
+              options_from_collection_for_select(StoreCategory.order(:code), :id, :label, el&.store_category_ref_id),
+              include_blank: "Any category", class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Branch</label>
+        <%= select_tag "promo[eligibility_branch_id]",
+              options_from_collection_for_select(Branch.order(:name), :id, :name, el&.branch_id),
+              include_blank: "All branches", class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+      </div>
+    </div>
+  </div>
+
+  <%# ---- Volume tiers (only for tiered_discount) ---- %>
+  <div class="mt-6 pt-4 border-t border-slate-100" data-mechanics="tiered_discount">
+    <div class="text-sm font-semibold text-slate-700 mb-2">Volume tiers</div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Basis</label>
+        <% basis = promo.config&.dig("basis").presence || "pieces" %>
+        <%= select_tag "promo[config_basis]", options_for_select([["By pieces bought", "pieces"], ["By spend (₱)", "amount"]], basis),
+              class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+      </div>
+      <div class="md:col-span-2">
+        <label class="block text-xs font-medium text-slate-600 mb-1">Tiers</label>
+        <% tier_str = promo.tiers.map { |t| "#{t['min'].to_f == t['min'].to_i ? t['min'].to_i : t['min']}:#{t['rate'] || t['amount']}" }.join("|") %>
+        <%= text_field_tag "promo[config_tiers]", tier_str, placeholder: "18:0.04|72:0.07  (or  1200:100|3000:300)",
+              class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono" %>
+        <p class="text-[11px] text-slate-400 mt-1"><code>min:value</code> per tier, separated by <code>|</code>. Value = a rate (<code>0.04</code> = 4%) for pieces, or a peso amount (<code>100</code>) for spend. Qualifying SKU is set by a line below (blank = whole order for spend).</p>
+      </div>
+    </div>
+  </div>
+
+  <%# ---- Mechanic lines (nested, add/remove) ---- %>
+  <div class="mt-6 pt-4 border-t border-slate-100" data-controller="nested-form">
+    <div class="flex items-center gap-2 mb-3">
+      <div class="flex-1 text-sm font-semibold text-slate-700">Mechanic lines</div>
+      <button type="button" data-action="nested-form#add" class="rounded-md border border-slate-300 text-sm font-semibold px-3 py-1.5 hover:bg-slate-50">+ Add line</button>
+    </div>
+
+    <div data-nested-form-target="rows">
+      <%= f.fields_for :promo_lines do |line| %>
+        <%= render "promo_line_fields", f: line %>
+      <% end %>
+    </div>
+
+    <template data-nested-form-target="template">
+      <%= f.fields_for :promo_lines, PromoLine.new, child_index: "NEW_RECORD" do |line| %>
+        <%= render "promo_line_fields", f: line %>
+      <% end %>
+    </template>
+    <p class="text-[11px] text-slate-400 mt-1">Qualifying = the "buy" line; Reward = free goods / discount granted.</p>
+  </div>
+
+  <div class="mt-5 flex items-center gap-2">
+    <%= f.submit(promo.persisted? ? "Save changes" : "Create promo", class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-4 py-2 hover:bg-[#17386f] cursor-pointer") %>
+    <%= link_to "Cancel", promos_path, class: "text-sm text-slate-500 hover:underline px-2" %>
+  </div>
+<% end %>

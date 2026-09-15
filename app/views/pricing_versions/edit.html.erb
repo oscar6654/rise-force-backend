@@ -1,0 +1,45 @@
+<% content_for :page_title, "Edit markup matrix — v#{@version.version_number}" %>
+
+<%= form_with url: pricing_version_path(@version), method: :patch, local: true do |f| %>
+  <div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+    <div class="px-4 py-3 border-b border-slate-200 text-sm font-semibold">Markup % by store category × product tier</div>
+    <div class="overflow-x-auto">
+      <table class="w-full border-collapse min-w-[560px]">
+        <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+          <th class="px-4 py-2.5">Store category</th>
+          <% @tiers.each do |tier| %><th class="px-4 py-2.5 text-center"><%= tier.name %></th><% end %>
+        </tr></thead>
+        <tbody>
+          <% @categories.each do |cat| %>
+            <tr class="border-b border-slate-100">
+              <td class="px-4 py-3 text-sm font-medium"><%= cat.label %></td>
+              <% @tiers.each do |tier| %>
+                <% rule = @matrix[[cat.id, tier.id]] %>
+                <td class="px-4 py-2 text-center">
+                  <div class="inline-flex items-center border border-slate-300 rounded-md overflow-hidden">
+                    <input type="number" step="0.01" name="markups[<%= cat.id %>][<%= tier.id %>]"
+                           value="<%= rule ? (rule.markup_rate * 100).round(2) : 0 %>"
+                           class="w-20 px-2 py-1.5 text-sm text-right font-mono outline-none" />
+                    <span class="px-2 py-1.5 bg-slate-50 border-l border-slate-200 text-xs text-slate-500">%</span>
+                  </div>
+                </td>
+              <% end %>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <div class="px-4 py-3 bg-slate-50 border-t border-slate-200 flex items-center gap-2">
+      <div class="flex-1 text-xs text-slate-500">Draft v<%= @version.version_number %> — publish to make it the active matrix. Add categories/tiers in their masters to grow this grid.</div>
+      <%= f.submit "Save markups", class: "rounded-md border border-slate-300 text-sm font-semibold px-3 py-2 hover:bg-slate-100 cursor-pointer" %>
+    </div>
+  </div>
+<% end %>
+
+<% if can?(:pricing, :publish) %>
+  <div class="mt-4">
+    <%= button_to "Publish v#{@version.version_number}", publish_pricing_version_path(@version), method: :patch,
+          class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-4 py-2 hover:bg-[#17386f] cursor-pointer",
+          data: { turbo_confirm: "Publish this version? It supersedes the current one and applies at the next seller sync." } %>
+  </div>
+<% end %>

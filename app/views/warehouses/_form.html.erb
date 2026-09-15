@@ -1,0 +1,29 @@
+<%= form_with model: warehouse, local: true do |f| %>
+  <%= render "shared/form_errors", model: warehouse %>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <%= f.label :whs_code, "Warehouse code", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :whs_code, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :wh_name, "Warehouse name", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :wh_name, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :branch_id, "Branch", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.collection_select :branch_id, Branch.order(:name), :id, :name, { include_blank: "—" }, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm", data: { controller: "tom-select" } %>
+    </div>
+    <div>
+      <%= f.label :status, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.select :status, Warehouse.statuses.keys.map { |s| [s.titleize, s] }, {}, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div class="md:col-span-2">
+      <%= f.label :address, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :address, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+  </div>
+  <div class="mt-5 flex items-center gap-2">
+    <%= f.submit(warehouse.persisted? ? "Save changes" : "Create warehouse", class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-4 py-2 hover:bg-[#17386f] cursor-pointer") %>
+    <%= link_to "Cancel", warehouses_path, class: "text-sm text-slate-500 hover:underline px-2" %>
+  </div>
+<% end %>

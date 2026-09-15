@@ -1,0 +1,101 @@
+<% content_for :page_title, @store.name %>
+<% content_for :page_actions do %>
+  <% if can?(:store, :update) %><%= link_to "Edit", edit_store_path(@store), class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %><% end %>
+<% end %>
+<div class="rounded-xl border border-slate-200 bg-white p-6 mx-auto max-w-2xl space-y-2 text-sm">
+  <div><span class="text-slate-500 w-40 inline-block">Code</span><span class="font-mono"><%= @store.code %></span></div>
+  <div><span class="text-slate-500 w-40 inline-block">Owner</span><%= @store.owner_name %></div>
+  <div><span class="text-slate-500 w-40 inline-block">Address</span><%= @store.address %></div>
+  <div><span class="text-slate-500 w-40 inline-block">Branch / Channel</span><%= @store.branch&.name %> · <%= @store.channel&.name %></div>
+  <div><span class="text-slate-500 w-40 inline-block">Category</span><%= @store.store_category&.label || "—" %></div>
+  <div><span class="text-slate-500 w-40 inline-block">Assigned seller</span><%= @store.assigned_seller&.name || "—" %></div>
+  <div><span class="text-slate-500 w-40 inline-block">Route</span><%= @store.route&.display_name || "—" %></div>
+  <div><span class="text-slate-500 w-40 inline-block">Frequency</span><%= @store.visit_frequency&.upcase %> · <%= @store.week_pattern&.titleize %> · <%= @store.visit_day&.titleize %> #<%= @store.visit_sequence %></div>
+  <div><span class="text-slate-500 w-40 inline-block">Status</span><%= @store.status.titleize %></div>
+  <div><span class="text-slate-500 w-40 inline-block">vcsi_rise link</span>
+    <% if @store.vcsi_customer_ref.present? %>
+      <span class="font-mono text-xs"><%= @store.vcsi_customer_ref %></span>
+    <% else %>
+      <span class="text-amber-600 text-xs">not linked — set vcsi_customer_ref to pull actual sellout</span>
+    <% end %>
+  </div>
+</div>
+
+<%# ---- Actual vs Target (MTD) — the reconciling "presell → invoiced" view ---- %>
+<div class="rounded-xl border border-slate-200 bg-white p-6 mx-auto max-w-2xl mt-5">
+  <div class="flex items-baseline justify-between mb-4">
+    <div class="text-sm font-semibold">Actual vs target · <%= @month.strftime("%B %Y") %></div>
+    <div class="text-xs text-slate-500">
+      <% if @last_sellout_sync %>synced <%= time_ago_in_words(@last_sellout_sync) %> ago<% else %>not yet synced<% end %>
+    </div>
+  </div>
+
+  <% if @store_target %>
+    <div class="flex items-end gap-6 mb-4">
+      <div>
+        <div class="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Blended actual</div>
+        <div class="text-3xl font-semibold">₱<%= number_with_delimiter(@blended.to_i) %></div>
+      </div>
+      <div class="pb-1">
+        <div class="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Target</div>
+        <div class="text-lg font-semibold text-slate-700">₱<%= number_with_delimiter(@store_target.target_amount.to_i) %></div>
+      </div>
+      <div class="pb-1 ml-auto text-right">
+        <div class="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Attainment</div>
+        <div class="text-2xl font-semibold <%= @attainment && @attainment >= 100 ? 'text-emerald-600' : 'text-slate-800' %>"><%= @attainment ? "#{@attainment}%" : "—" %></div>
+      </div>
+    </div>
+
+    <%# progress bar %>
+    <div class="h-2 rounded-full bg-slate-100 overflow-hidden mb-4">
+      <div class="h-full <%= @attainment && @attainment >= 100 ? 'bg-emerald-500' : 'bg-[#1f4b99]' %>" style="width: <%= [[@attainment.to_i, 0].max, 100].min %>%"></div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3 text-sm">
+      <div class="rounded-lg bg-slate-50 border border-slate-200 p-3">
+        <div class="text-xs text-slate-500">Confirmed (vcsi_rise invoiced)</div>
+        <div class="font-semibold">₱<%= number_with_delimiter(@confirmed.to_i) %></div>
+      </div>
+      <div class="rounded-lg bg-amber-50 border border-amber-200 p-3">
+        <div class="text-xs text-amber-700">+ Presell pending (since last sync)</div>
+        <div class="font-semibold text-amber-800">₱<%= number_with_delimiter(@pending_presell.to_i) %></div>
+      </div>
+    </div>
+    <p class="text-xs text-slate-500 mt-3">
+      Presell is optimistic (assumes every order is fulfilled &amp; received). On the next sellout sync it reconciles to vcsi_rise's invoiced truth — cancellations and stock-outs pull it back to actual.
+      Target = <%= @store_target.basis_label || "derived from vcsi_rise history" %> (basis ₱<%= number_with_delimiter(@store_target.basis_amount.to_i) %>).
+    </p>
+  <% else %>
+    <p class="text-sm text-slate-500">
+      No derived target yet. Link this store (<span class="font-mono">vcsi_customer_ref</span>) and run the
+      <strong>Store targets</strong> compute from <%= link_to "Import logs", job_logs_path, class: "text-[#1f4b99] hover:underline" %> —
+      SFA derives the target from this store's vcsi_rise sales history.
+    </p>
+  <% end %>
+</div>
+
+<%# ---- Must-carry (assortment) compliance ---- %>
+<% if @compliance %>
+  <div class="rounded-xl border border-slate-200 bg-white p-6 mx-auto max-w-2xl mt-5">
+    <div class="flex items-baseline justify-between mb-3">
+      <div class="text-sm font-semibold">Must-carry compliance</div>
+      <div class="text-lg font-semibold <%= @compliance[:pct] >= 100 ? 'text-emerald-600' : @compliance[:pct] >= 70 ? 'text-slate-800' : 'text-amber-600' %>">
+        <%= @compliance[:carried] %>/<%= @compliance[:must] %> · <%= @compliance[:pct] %>%
+      </div>
+    </div>
+    <div class="h-2 rounded-full bg-slate-100 overflow-hidden mb-3">
+      <div class="h-full <%= @compliance[:pct] >= 100 ? 'bg-emerald-500' : 'bg-[#1f4b99]' %>" style="width: <%= [[@compliance[:pct], 0].max, 100].min %>%"></div>
+    </div>
+    <% if @gap_products&.any? %>
+      <div class="text-xs font-semibold text-amber-700 mb-1">Not carried (<%= @gap_products.size %>):</div>
+      <div class="flex flex-wrap gap-2">
+        <% @gap_products.each do |sku, desc| %>
+          <span class="rounded bg-amber-50 border border-amber-200 text-amber-700 text-xs px-2 py-1"><span class="font-mono"><%= sku %></span> · <%= desc %></span>
+        <% end %>
+      </div>
+    <% else %>
+      <p class="text-xs text-emerald-600">All must-carry SKUs are being ordered. ✓</p>
+    <% end %>
+    <p class="text-xs text-slate-400 mt-3">Carried = ordered in the last 90 days. Must-carry list resolved from the assortment master (branch / channel / category).</p>
+  </div>
+<% end %>

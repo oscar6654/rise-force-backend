@@ -1,0 +1,14 @@
+<% content_for :page_title, @user.full_name %>
+<% content_for :page_actions do %>
+  <% if can?(:user, :update) %>
+    <%= link_to "Edit", edit_admin_user_path(@user), class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
+  <% end %>
+<% end %>
+
+<div class="rounded-xl border border-slate-200 bg-white p-6 mx-auto max-w-2xl space-y-3 text-sm">
+  <div><span class="text-slate-500 w-32 inline-block">Email</span><%= @user.email %></div>
+  <div><span class="text-slate-500 w-32 inline-block">Roles</span><%= @user.role_names.map(&:titleize).join(", ").presence || "—" %></div>
+  <div><span class="text-slate-500 w-32 inline-block">Branch scope</span><%= @user.all_branches? ? "All branches" : @user.branch&.name %></div>
+  <div><span class="text-slate-500 w-32 inline-block">Status</span><%= @user.status.titleize %></div>
+  <div><span class="text-slate-500 w-32 inline-block">Last sign in</span><%= @user.last_sign_in_at&.strftime("%d %b %Y %H:%M") || "—" %></div>
+</div>

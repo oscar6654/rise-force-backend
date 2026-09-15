@@ -1,0 +1,72 @@
+<% content_for :page_title, "Approvals" %>
+<% content_for :page_sub do %>Field-submitted store registrations awaiting review<% end %>
+
+<% if @pending.any? %>
+  <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-center gap-3 mb-4 text-sm text-amber-800">
+    <span>⚠</span>
+    <div class="flex-1"><%= pluralize(@pending.size, "registration") %> waiting.<% if @flagged_count.positive? %> <%= @flagged_count %> flagged as possible duplicates.<% end %></div>
+  </div>
+<% end %>
+
+<% if can?(:system_setting, :update) %>
+  <% current_default = StoreRegistration.default_category_code %>
+  <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 mb-6">
+    <%= form_with url: default_category_store_registrations_path, method: :patch, local: true, class: "flex flex-wrap items-end gap-3" do %>
+      <div>
+        <label class="block text-xs font-semibold text-slate-600 mb-1">Default category for new stores</label>
+        <p class="text-[11px] text-slate-400 mb-1 max-w-md">Sellers pick the channel in the app; every new store enrolls on this category so it can sell immediately. Change any store's category on review or its edit page.</p>
+        <%= select_tag :default_enrollment_category,
+              options_for_select(StoreCategory.ordered.map { |c| [c.label, c.code] }, current_default),
+              class: "rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+      </div>
+      <%= submit_tag "Save default", class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-4 py-2 hover:bg-[#17386f] cursor-pointer" %>
+    <% end %>
+  </div>
+<% end %>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden mb-6">
+  <div class="px-4 py-3 border-b border-slate-200 text-sm font-semibold">Pending</div>
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse min-w-[820px]">
+      <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+        <th class="px-4 py-2.5">Store submitted</th><th class="px-4 py-2.5">By seller</th>
+        <th class="px-4 py-2.5">Channel</th><th class="px-4 py-2.5">Checks</th><th></th>
+      </tr></thead>
+      <tbody>
+        <% @pending.each do |r| %>
+          <tr class="border-b border-slate-100 hover:bg-slate-50 align-top">
+            <td class="px-4 py-3"><div class="text-sm font-medium"><%= r.name %></div><div class="text-xs text-slate-500"><%= r.address %></div></td>
+            <td class="px-4 py-3"><div class="text-sm"><%= r.seller&.name %></div><div class="text-xs text-slate-500"><%= time_ago_in_words(r.created_at) %> ago</div></td>
+            <td class="px-4 py-3 text-sm text-slate-600"><%= r.channel&.name || "—" %> · <%= (r.provisional_store&.store_category&.label || r.proposed_category&.titleize || "#{StoreRegistration.default_category_code.titleize} (default)") %></td>
+            <td class="px-4 py-3">
+              <div class="flex flex-wrap gap-1">
+                <% if r.flagged_duplicate? %>
+                  <% Array(r.duplicate_flags).each do |f| %><span class="rounded bg-red-50 text-red-700 text-[10px] font-semibold px-1.5 py-0.5"><%= f %></span><% end %>
+                <% else %><span class="rounded bg-emerald-50 text-emerald-700 text-[10px] font-semibold px-1.5 py-0.5">no duplicate</span><% end %>
+              </div>
+            </td>
+            <td class="px-4 py-3 text-right"><%= link_to "Review", store_registration_path(r), class: "rounded-md bg-[#1f4b99] text-white text-xs font-semibold px-3 py-1.5 hover:bg-[#17386f]" %></td>
+          </tr>
+        <% end %>
+        <% if @pending.empty? %><tr><td colspan="5" class="px-4 py-8 text-center text-sm text-slate-500">Nothing awaiting review. 🎉</td></tr><% end %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<% if @recent.any? %>
+  <div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+    <div class="px-4 py-3 border-b border-slate-200 text-sm font-semibold">Recently reviewed</div>
+    <table class="w-full border-collapse min-w-[520px]">
+      <tbody>
+        <% @recent.each do |r| %>
+          <tr class="border-b border-slate-100">
+            <td class="px-4 py-2.5 text-sm"><%= r.name %></td>
+            <td class="px-4 py-2.5"><span class="rounded-full text-[11px] font-semibold px-2 py-0.5 <%= r.approved? ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700' %>"><%= r.status.titleize %></span></td>
+            <td class="px-4 py-2.5 text-xs text-slate-500 text-right"><%= r.reviewed_at&.strftime("%d %b %H:%M") %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>

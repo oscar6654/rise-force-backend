@@ -1,0 +1,62 @@
+<%= form_with model: role, url: (role.persisted? ? admin_role_path(role) : admin_roles_path), method: (role.persisted? ? :patch : :post), local: true do |f| %>
+  <%= render "shared/form_errors", model: role if lookup_context.exists?("shared/_form_errors") %>
+  <% if role.errors.any? %>
+    <div class="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 mb-4">
+      <%= role.errors.full_messages.to_sentence %>
+    </div>
+  <% end %>
+
+  <div class="rounded-xl border border-slate-200 bg-white p-6 mb-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <%= f.label :name, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :name, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div class="flex items-end gap-2">
+      <%= f.check_box :active, class: "rounded border-slate-300" %>
+      <%= f.label :active, "Active", class: "text-sm text-slate-700" %>
+    </div>
+    <div class="md:col-span-2">
+      <%= f.label :description, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :description, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+  </div>
+
+  <div class="rounded-xl border border-slate-200 bg-white overflow-hidden mb-5">
+    <div class="px-4 py-3 border-b border-slate-200 text-sm font-semibold">Permissions — tick what this role can do</div>
+    <div class="overflow-x-auto">
+      <table class="w-full border-collapse min-w-[720px]">
+        <thead>
+          <tr class="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wide text-slate-500">
+            <th class="px-4 py-2.5 text-left">Module</th>
+            <% Permission::ACTIONS.each do |action| %>
+              <th class="px-3 py-2.5 text-center"><%= action.titleize %></th>
+            <% end %>
+          </tr>
+        </thead>
+        <tbody class="text-sm">
+          <% @grid.each do |resource, perms| %>
+            <% by_action = perms.index_by(&:action) %>
+            <tr class="border-b border-slate-100">
+              <td class="px-4 py-2.5 font-medium whitespace-nowrap"><%= resource.titleize %></td>
+              <% Permission::ACTIONS.each do |action| %>
+                <td class="px-3 py-2.5 text-center">
+                  <% if (perm = by_action[action]) %>
+                    <%= check_box_tag "role[permission_ids][]", perm.id, @granted_ids.include?(perm.id),
+                          id: "perm_#{perm.id}", class: "rounded border-slate-300 w-4 h-4" %>
+                  <% else %>
+                    <span class="text-slate-200">·</span>
+                  <% end %>
+                </td>
+              <% end %>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="flex items-center gap-2">
+    <%= f.submit(role.persisted? ? "Save role" : "Create role", class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-4 py-2 hover:bg-[#17386f] cursor-pointer") %>
+    <%= link_to "Cancel", admin_roles_path, class: "text-sm text-slate-500 hover:underline px-2" %>
+  </div>
+<% end %>

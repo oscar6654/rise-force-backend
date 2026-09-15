@@ -1,0 +1,40 @@
+<% content_for :page_title, "Sellers" %>
+<% content_for :page_actions do %>
+  <% if can?(:seller, :create) %>
+    <%= link_to "New seller", new_seller_path, class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
+  <% end %>
+<% end %>
+
+<% content_for :page_sub do %>Targets & actual sellout (vcsi_rise) tagged to the assigned console user / supervisor<% end %>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse min-w-[1040px]">
+      <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+        <th class="px-4 py-2.5">Seller</th><th class="px-4 py-2.5">Supervisor</th><th class="px-4 py-2.5">Assigned user</th>
+        <th class="px-4 py-2.5 text-right">Target</th><th class="px-4 py-2.5 text-right">Actual (vcsi MTD)</th><th class="px-4 py-2.5 text-right">%</th>
+        <th class="px-4 py-2.5">Last sync</th><th class="px-4 py-2.5">Status</th><th></th>
+      </tr></thead>
+      <tbody>
+        <% @sellers.each do |s| %>
+          <% pct = s.attainment_pct %>
+          <tr class="border-b border-slate-100 hover:bg-slate-50">
+            <td class="px-4 py-3"><div class="text-sm font-medium"><%= s.name %></div><div class="text-xs font-mono text-slate-500"><%= s.seller_code %><% if s.vcsi_sales_rep_ref.present? %> · vcsi <%= s.vcsi_sales_rep_ref %><% end %></div></td>
+            <td class="px-4 py-3 text-sm text-slate-600"><%= s.supervisor_name.presence || "—" %></td>
+            <td class="px-4 py-3 text-sm text-slate-600"><%= s.user&.full_name || "—" %></td>
+            <td class="px-4 py-3 text-right font-mono text-sm text-slate-600"><%= number_with_precision(s.target_for, precision: 0, delimiter: ",") %></td>
+            <td class="px-4 py-3 text-right font-mono text-sm"><%= number_with_precision(s.actual_for, precision: 0, delimiter: ",") %></td>
+            <td class="px-4 py-3 text-right"><% if pct %><span class="rounded px-1.5 py-0.5 text-xs font-semibold <%= pct >= 100 ? 'bg-emerald-100 text-emerald-700' : pct >= 70 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700' %>"><%= pct %>%</span><% else %><span class="text-slate-300">—</span><% end %></td>
+            <td class="px-4 py-3 text-xs <%= s.sync_stale? ? 'text-amber-600' : 'text-slate-500' %>">
+              <%= s.last_actual_sync_at ? time_ago_in_words(s.last_actual_sync_at) + " ago" : "never" %>
+              <% if s.last_sync_from_app? %><span class="ml-1 rounded bg-slate-100 text-slate-500 text-[10px] px-1 py-0.5" title="Last refresh was the seller's own app sync">app</span><% end %>
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap"><span class="rounded-full text-[11px] font-semibold px-2 py-0.5 <%= s.active? ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600' %>"><%= s.status.titleize %></span></td>
+            <td class="px-4 py-3 text-right"><% if can?(:seller, :update) %><%= link_to "Manage", edit_seller_path(s), class: "text-sm font-semibold text-[#1f4b99] hover:underline" %><% end %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+  <div class="px-4 py-3"><%= paginate @sellers if respond_to?(:paginate) %></div>
+</div>

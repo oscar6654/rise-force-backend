@@ -1,0 +1,31 @@
+<% content_for :page_title, "#{@log.job_type.titleize} — ##{@log.id}" %>
+<% content_for :page_actions do %>
+  <% if @log.rejected_records_data.present? %>
+    <%= link_to "Download rejected rows", rejected_csv_job_log_path(@log), class: "rounded-md border border-slate-300 bg-white text-slate-700 text-sm font-semibold px-3 py-2 hover:bg-slate-50" %>
+  <% end %>
+<% end %>
+
+<div class="rounded-xl border border-slate-200 bg-white p-6 mx-auto max-w-2xl space-y-2 text-sm mb-4">
+  <div><span class="text-slate-500 w-40 inline-block">Status</span><%= @log.status.titleize %></div>
+  <div><span class="text-slate-500 w-40 inline-block">File</span><span class="font-mono"><%= @log.filename || "—" %></span></div>
+  <div><span class="text-slate-500 w-40 inline-block">Rows</span><%= @log.processed_rows %> processed / <%= @log.total_rows %> total · <%= @log.error_count %> rejected</div>
+  <div><span class="text-slate-500 w-40 inline-block">By</span><%= @log.triggered_by&.full_name || "system" %></div>
+  <div><span class="text-slate-500 w-40 inline-block">Started</span><%= @log.started_at&.strftime("%d %b %Y %H:%M") %></div>
+  <div><span class="text-slate-500 w-40 inline-block">Finished</span><%= @log.finished_at&.strftime("%d %b %Y %H:%M") %></div>
+</div>
+
+<% if @log.rejected_records_data.present? %>
+  <div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+    <div class="px-4 py-3 border-b border-slate-200 text-sm font-semibold">Rejected rows</div>
+    <table class="w-full border-collapse min-w-[520px]">
+      <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+        <th class="px-4 py-2.5">Line</th><th class="px-4 py-2.5">Error</th>
+      </tr></thead>
+      <tbody>
+        <% @log.rejected_records_data.first(200).each do |r| %>
+          <tr class="border-b border-slate-100"><td class="px-4 py-2 font-mono text-xs"><%= r["line"] %></td><td class="px-4 py-2 text-sm text-red-700"><%= r["error"] %></td></tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>

@@ -1,0 +1,79 @@
+<% content_for :page_title, "Dashboard" %>
+<% content_for :page_sub do %><%= current_user.all_branches? ? "All branches" : current_user.branch&.name %> · <%= @month.strftime("%B %Y") %> MTD<% end %>
+
+<%# KPIs %>
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+  <% [
+       ["Actual sellout MTD", number_to_currency(@kpis[:actual_sellout_mtd], unit: "₱", precision: 0), "vcsi_rise invoiced (source of truth)"],
+       ["Presell value MTD", number_to_currency(@kpis[:presell_mtd], unit: "₱", precision: 0), "SFA orders, pre-fulfilment"],
+       ["Active stores (invoiced)", @kpis[:invoiced_stores], "buying in vcsi_rise MTD"],
+       ["Registered stores", @kpis[:registered_stores], "status active"],
+       ["Productive call %", @kpis[:productive_call_pct] ? "#{@kpis[:productive_call_pct]}%" : "—", "calls with an order"],
+       ["Active sellers", @kpis[:sellers], nil],
+       ["Orders MTD", @kpis[:orders_mtd], nil]
+     ].each do |label, value, hint| %>
+    <div class="rounded-xl border border-slate-200 bg-white p-4">
+      <div class="text-[11px] uppercase tracking-wide text-slate-500 font-semibold"><%= label %></div>
+      <div class="text-2xl font-semibold mt-1"><%= value %></div>
+      <% if hint %><div class="text-[11px] text-slate-400 mt-0.5"><%= hint %></div><% end %>
+    </div>
+  <% end %>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
+  <%# Needs attention %>
+  <div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+    <div class="px-4 py-3 border-b border-slate-200 text-sm font-semibold">Needs your attention</div>
+    <% @attention.each do |a| %>
+      <%= link_to a[:path], class: "flex items-center gap-3 px-4 py-3 border-b border-slate-50 hover:bg-slate-50" do %>
+        <div class="flex-1 min-w-0"><div class="text-sm font-medium"><%= a[:title] %></div><div class="text-xs text-slate-500"><%= a[:sub] %></div></div>
+        <div class="text-lg font-semibold <%= a[:count].positive? ? 'text-[#1f4b99]' : 'text-slate-300' %>"><%= a[:count] %></div>
+        <div class="text-slate-300">›</div>
+      <% end %>
+    <% end %>
+  </div>
+
+  <%# vcsi_rise sync note %>
+  <div class="rounded-xl border border-slate-200 bg-white p-4 lg:col-span-2">
+    <div class="flex items-center gap-2 mb-1">
+      <div class="text-sm font-semibold flex-1">SFA presell vs vcsi_rise actual</div>
+      <% if @last_sellout_sync %>
+        <span class="text-[11px] font-semibold rounded px-2 py-0.5 bg-emerald-100 text-emerald-700">Synced <%= time_ago_in_words(@last_sellout_sync) %> ago</span>
+      <% else %>
+        <span class="text-[11px] font-semibold rounded px-2 py-0.5 bg-amber-100 text-amber-800">No vcsi_rise sellout yet</span>
+      <% end %>
+    </div>
+    <p class="text-xs text-slate-500 leading-relaxed">Actual sellout &amp; targets come from <strong>vcsi_rise</strong> (source of truth, from invoice uploads). SFA presell is this app's own captured orders. Divergence is expected (returns, non-fulfillment).</p>
+    <% if @kpis[:actual_sellout_mtd].to_i.zero? %>
+      <p class="text-xs text-amber-700 mt-2">No actual sellout has synced for <%= @month.strftime("%B") %> yet. Check the vcsi_rise connection in <%= link_to "System settings", admin_system_settings_path(tab: "vcsi"), class: "underline" %>, then run a pull from the <%= link_to "import logs", job_logs_path, class: "underline" %> or wait for the scheduled sync.</p>
+    <% end %>
+  </div>
+</div>
+
+<%# Seller target attainment %>
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <div class="px-4 py-3 border-b border-slate-200 text-sm font-semibold">Seller target attainment — month to date</div>
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse min-w-[720px]">
+      <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+        <th class="px-4 py-2.5">Seller</th><th class="px-4 py-2.5">Branch</th>
+        <th class="px-4 py-2.5 text-right">Target</th><th class="px-4 py-2.5 text-right">Actual (vcsi)</th>
+        <th class="px-4 py-2.5 text-right">Presell (SFA)</th><th class="px-4 py-2.5 text-right">%</th><th class="px-4 py-2.5">Last sync</th>
+      </tr></thead>
+      <tbody>
+        <% @attainment.each do |r| %>
+          <tr class="border-b border-slate-100">
+            <td class="px-4 py-2.5 text-sm font-medium"><%= r[:seller].name %></td>
+            <td class="px-4 py-2.5 text-sm text-slate-600"><%= r[:seller].branch&.name %></td>
+            <td class="px-4 py-2.5 text-right font-mono text-sm text-slate-600"><%= number_with_precision(r[:target], precision: 0) %></td>
+            <td class="px-4 py-2.5 text-right font-mono text-sm"><%= number_with_precision(r[:actual], precision: 0) %></td>
+            <td class="px-4 py-2.5 text-right font-mono text-sm text-slate-500"><%= number_with_precision(r[:presell], precision: 0) %></td>
+            <td class="px-4 py-2.5 text-right"><% if r[:pct] %><span class="rounded px-1.5 py-0.5 text-xs font-semibold <%= r[:pct] >= 100 ? 'bg-emerald-100 text-emerald-700' : r[:pct] >= 70 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700' %>"><%= r[:pct] %>%</span><% else %><span class="text-slate-300">—</span><% end %></td>
+            <td class="px-4 py-2.5 text-xs text-slate-500"><%= r[:last_sync] ? time_ago_in_words(r[:last_sync]) + " ago" : "never" %></td>
+          </tr>
+        <% end %>
+        <% if @attainment.empty? %><tr><td colspan="7" class="px-4 py-8 text-center text-sm text-slate-500">No sellers yet.</td></tr><% end %>
+      </tbody>
+    </table>
+  </div>
+</div>

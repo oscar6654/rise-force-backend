@@ -1,0 +1,144 @@
+<%= form_with model: product, local: true do |f| %>
+  <%= render "shared/form_errors", model: product %>
+
+  <div class="text-sm font-semibold text-slate-700 mb-2">Identity</div>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <%= f.label :sku, "Item key", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :sku, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :description, "Description (desc1)", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :description, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :desc2, "Description 2", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :desc2, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :status, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.select :status, Product.statuses.keys.map { |s| [s.titleize, s] }, {}, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+  </div>
+
+  <div class="text-sm font-semibold text-slate-700 mt-5 mb-2">Classification</div>
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div>
+      <%= f.label :brand_name, "Brand", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.select :brand_name, Brand.ordered.pluck(:name), { include_blank: "—", selected: product.brand&.name },
+            class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm",
+            data: { controller: "tom-select", "tom-select-create-value": true, "tom-select-placeholder-value": "Pick or type a new brand…" } %>
+    </div>
+    <div>
+      <%= f.label :brand_form, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :brand_form, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :category_name, "Category", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.select :category_name, ProductCategory.ordered.pluck(:name), { include_blank: "—", selected: product.product_category&.name },
+            class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm",
+            data: { controller: "tom-select", "tom-select-create-value": true, "tom-select-placeholder-value": "Pick or type a new category…" } %>
+    </div>
+    <div>
+      <%= f.label :variant_code, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :variant_code, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :variant_name, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :variant_name, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :tier_code, "Item tier", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.select :tier_code, ProductTier.ordered.map { |t| [t.name, t.code] },
+            { include_blank: "—", selected: product.product_tier&.code },
+            class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm",
+            data: { controller: "tom-select", "tom-select-create-value": true, "tom-select-placeholder-value": "Pick or type a new tier…" } %>
+    </div>
+    <div>
+      <%= f.label :abc_class, "ABC class", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :abc_class, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+  </div>
+
+  <div class="text-sm font-semibold text-slate-700 mt-5 mb-2">Units &amp; packaging</div>
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div>
+      <%= f.label :ordering_unit, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :ordering_unit, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :stock_uom, "Stock UOM", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :stock_uom, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :purchase_uom, "Purchase UOM", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :purchase_uom, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :selling_uom, "Selling UOM", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :selling_uom, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :pcs_per_case, "Items per case", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.number_field :pcs_per_case, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :items_per_shrinkwrap, "Items / shrinkwrap", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.number_field :items_per_shrinkwrap, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :casesperpallet, "Cases / pallet", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.number_field :casesperpallet, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :layersperpallet, "Layers / pallet", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.number_field :layersperpallet, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+  </div>
+
+  <div class="text-sm font-semibold text-slate-700 mt-5 mb-2">Barcodes</div>
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div>
+      <%= f.label :it_barcode, "Item barcode", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :it_barcode, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :cs_barcode, "Case barcode", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :cs_barcode, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :sw_barcode, "Shrinkwrap barcode", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :sw_barcode, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+  </div>
+
+  <div class="text-sm font-semibold text-slate-700 mt-5 mb-2">Costing</div>
+  <p class="text-[11px] text-slate-400 mb-2">Item cost (per piece) and case cost (per case) are the basis the pricing matrix marks up by tier × store category.</p>
+  <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+    <div>
+      <%= f.label :item_cost, "Item cost (per pc)", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.number_field :item_cost, step: "0.01", class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :case_cost, "Case cost (per case)", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.number_field :case_cost, step: "0.01", class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :tax_code, "Tax", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :tax_code, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+  </div>
+
+  <div class="mt-5">
+    <%= f.label :photo, "Product photo", class: "block text-sm font-medium text-slate-700 mb-1" %>
+    <% if product.photo.attached? %>
+      <%= image_tag cdn_variant_url(product.photo, resize_to_limit: [80,80]), class: "w-16 h-16 rounded object-cover border border-slate-200 mb-2" %>
+    <% end %>
+    <%= f.file_field :photo, accept: "image/*", class: "block w-full text-sm text-slate-600" %>
+  </div>
+
+  <div class="mt-5 flex items-center gap-2">
+    <%= f.submit(product.persisted? ? "Save changes" : "Create product", class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-4 py-2 hover:bg-[#17386f] cursor-pointer") %>
+    <%= link_to "Cancel", products_path, class: "text-sm text-slate-500 hover:underline px-2" %>
+  </div>
+<% end %>

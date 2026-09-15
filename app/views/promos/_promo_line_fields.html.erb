@@ -1,0 +1,39 @@
+<div class="grid grid-cols-12 gap-2 items-end border border-slate-200 rounded-lg p-3 mb-2" data-nested-row>
+  <div class="col-span-2">
+    <label class="block text-[11px] text-slate-500 mb-1">Role</label>
+    <%= f.select :role, PromoLine.roles.keys.map { |r| [r.titleize, r] }, {}, class: "w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" %>
+  </div>
+  <div class="col-span-3">
+    <label class="block text-[11px] text-slate-500 mb-1">Item (by IT barcode)</label>
+    <%= f.select :it_barcode, Product.barcode_options, { include_blank: "—" }, class: "w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm", data: { controller: "tom-select", "tom-select-placeholder-value": "Search by desc or barcode…" } %>
+  </div>
+  <%# Buy X quantity — threshold mechanics %>
+  <div class="col-span-2" data-mechanics="buy_x_get_y qty_threshold_free_good bundle_price">
+    <label class="block text-[11px] text-slate-500 mb-1">Min qty</label>
+    <%= f.number_field :min_qty, class: "w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" %>
+  </div>
+  <%# Get Y quantity — free-good mechanics %>
+  <div class="col-span-2" data-mechanics="buy_x_get_y free_goods qty_threshold_free_good">
+    <label class="block text-[11px] text-slate-500 mb-1">Reward qty</label>
+    <%= f.number_field :reward_qty, class: "w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" %>
+  </div>
+  <%# Percentage discount %>
+  <div class="col-span-2" data-mechanics="discount_percent">
+    <label class="block text-[11px] text-slate-500 mb-1">Discount %</label>
+    <%= f.number_field :discount_rate, step: "0.01", class: "w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" %>
+  </div>
+  <%# Amount off %>
+  <div class="col-span-2" data-mechanics="discount_amount">
+    <label class="block text-[11px] text-slate-500 mb-1">Amount off</label>
+    <%= f.number_field :discount_amount, step: "0.01", class: "w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" %>
+  </div>
+  <%# Bundle fixed price %>
+  <div class="col-span-2" data-mechanics="bundle_price">
+    <label class="block text-[11px] text-slate-500 mb-1">Bundle price</label>
+    <%= f.number_field :fixed_price, step: "0.01", class: "w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" %>
+  </div>
+  <div class="col-span-1 flex justify-end">
+    <%= f.hidden_field :_destroy %>
+    <button type="button" data-action="nested-form#remove" class="text-red-500 hover:text-red-700 text-lg px-1" title="Remove">×</button>
+  </div>
+</div>

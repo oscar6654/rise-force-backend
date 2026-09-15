@@ -1,0 +1,30 @@
+<% content_for :page_title, "Assortment types" %>
+<% content_for :page_sub do %>Types drive assortment-type achievement &amp; incentives. Add your own — no deploy needed.<% end %>
+<% content_for :page_actions do %>
+  <%= link_to "Back to assortments", assortments_path, class: "text-sm font-semibold text-slate-500 hover:underline mr-3" %>
+  <% if can?(:assortment, :create) %>
+    <%= link_to "New type", new_assortment_type_path, class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
+  <% end %>
+<% end %>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <table class="w-full border-collapse min-w-[560px]">
+    <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+      <th class="px-4 py-2.5">Code</th><th class="px-4 py-2.5">Name</th><th class="px-4 py-2.5">Order</th><th class="px-4 py-2.5">Assortments</th><th class="px-4 py-2.5">Active</th><th></th>
+    </tr></thead>
+    <tbody>
+      <% @types.each do |t| %>
+        <tr class="border-b border-slate-100 hover:bg-slate-50">
+          <td class="px-4 py-3 font-mono text-xs text-slate-600"><%= t.code %></td>
+          <td class="px-4 py-3 text-sm font-medium"><%= t.name %></td>
+          <td class="px-4 py-3 text-sm text-slate-600"><%= t.position %></td>
+          <td class="px-4 py-3 text-sm text-slate-600"><%= t.assortments.count %></td>
+          <td class="px-4 py-3"><span class="rounded-full text-[11px] font-semibold px-2 py-0.5 <%= t.active? ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600' %>"><%= t.active? ? "Active" : "Inactive" %></span></td>
+          <td class="px-4 py-3 text-right">
+            <% if can?(:assortment, :update) %><%= link_to "Edit", edit_assortment_type_path(t), class: "text-sm font-semibold text-[#1f4b99] hover:underline" %><% end %>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>

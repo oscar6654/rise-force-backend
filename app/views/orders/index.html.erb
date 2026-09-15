@@ -1,0 +1,38 @@
+<% content_for :page_title, "Orders" %>
+<% content_for :page_sub do %>Presell orders synced from the field<% end %>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <%= form_with url: orders_path, method: :get, local: true, class: "px-4 py-3 border-b border-slate-200 flex flex-wrap gap-2 items-center" do %>
+    <%= select_tag :status, options_for_select([["All statuses",""]] + Order.statuses.keys.map { |s| [s.titleize, s] }, params[:status]), class: "rounded-md border border-slate-300 px-2 py-2 text-sm" %>
+    <% if @filter_branches && @filter_branches.size > 1 %>
+      <%= select_tag :branch_id, options_for_select([["All branches",""]] + @filter_branches.map { |b| [b.name, b.id] }, params[:branch_id]), class: "rounded-md border border-slate-300 px-2 py-2 text-sm" %>
+    <% end %>
+    <label class="text-xs text-slate-500">From <%= date_field_tag :from, params[:from], class: "rounded-md border border-slate-300 px-2 py-2 text-sm" %></label>
+    <label class="text-xs text-slate-500">To <%= date_field_tag :to, params[:to], class: "rounded-md border border-slate-300 px-2 py-2 text-sm" %></label>
+    <%= submit_tag "Filter", class: "rounded-md border border-slate-300 text-sm px-3 py-2 hover:bg-slate-50 cursor-pointer" %>
+    <span class="text-xs text-slate-500 ml-auto"><%= @orders.total_count %> orders</span>
+  <% end %>
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse min-w-[820px]">
+      <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+        <th class="px-4 py-2.5">Order #</th><th class="px-4 py-2.5">Store</th><th class="px-4 py-2.5">Seller</th>
+        <th class="px-4 py-2.5">Ordered</th><th class="px-4 py-2.5 text-right">Total</th><th class="px-4 py-2.5">Status</th><th></th>
+      </tr></thead>
+      <tbody>
+        <% @orders.each do |o| %>
+          <tr class="border-b border-slate-100 hover:bg-slate-50">
+            <td class="px-4 py-3 font-mono text-xs text-slate-600 whitespace-nowrap"><%= o.order_number %></td>
+            <td class="px-4 py-3 text-sm"><%= o.store.name %></td>
+            <td class="px-4 py-3 text-sm text-slate-600"><%= o.seller.name %></td>
+            <td class="px-4 py-3 text-xs text-slate-500"><%= o.ordered_at&.strftime("%d %b %H:%M") %></td>
+            <td class="px-4 py-3 text-right font-mono text-sm"><%= number_with_precision(o.total_amount, precision: 2) %></td>
+            <td class="px-4 py-3"><span class="rounded-full text-[11px] font-semibold px-2 py-0.5 bg-slate-100 text-slate-700"><%= o.status.titleize %></span></td>
+            <td class="px-4 py-3 text-right"><%= link_to "View", order_path(o), class: "text-sm font-semibold text-[#1f4b99] hover:underline" %></td>
+          </tr>
+        <% end %>
+        <% if @orders.empty? %><tr><td colspan="7" class="px-4 py-8 text-center text-sm text-slate-500">No orders yet — they arrive when sellers sync.</td></tr><% end %>
+      </tbody>
+    </table>
+  </div>
+  <div class="px-4 py-3"><%= paginate @orders if respond_to?(:paginate) %></div>
+</div>

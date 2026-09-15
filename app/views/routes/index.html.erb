@@ -1,0 +1,30 @@
+<% content_for :page_title, "Route plans" %>
+<% content_for :page_actions do %>
+  <% if can?(:route_plan, :update) %>
+    <%= link_to "New route", new_route_path, class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
+  <% end %>
+<% end %>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse min-w-[720px]">
+      <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+        <th class="px-4 py-2.5">Route</th><th class="px-4 py-2.5">Branch</th><th class="px-4 py-2.5">Seller</th>
+        <th class="px-4 py-2.5">Stores</th><th class="px-4 py-2.5">Status</th><th></th>
+      </tr></thead>
+      <tbody>
+        <% @routes.each do |r| %>
+          <tr class="border-b border-slate-100 hover:bg-slate-50">
+            <td class="px-4 py-3"><div class="text-sm font-medium"><%= r.code %></div><div class="text-xs text-slate-500"><%= r.name %></div></td>
+            <td class="px-4 py-3 text-sm text-slate-600"><%= r.branch&.name %></td>
+            <td class="px-4 py-3 text-sm text-slate-600"><%= r.seller&.name || "—" %></td>
+            <td class="px-4 py-3 text-sm text-slate-600"><%= r.stores.size %></td>
+            <td class="px-4 py-3"><span class="rounded-full text-[11px] font-semibold px-2 py-0.5 <%= r.active? ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600' %>"><%= r.status.titleize %></span></td>
+            <td class="px-4 py-3 text-right"><%= link_to "Open", route_path(r), class: "text-sm font-semibold text-[#1f4b99] hover:underline" %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+  <div class="px-4 py-3"><%= paginate @routes if respond_to?(:paginate) %></div>
+</div>

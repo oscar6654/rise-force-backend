@@ -1,0 +1,34 @@
+<% content_for :page_title, @batch.batch_number %>
+<% content_for :page_actions do %>
+  <% if can?(:order_batch, :download) && !@batch.downloaded? && !@batch.invoiced? %>
+    <%= link_to "⭳ Download & lock", download_order_batch_path(@batch),
+          class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
+  <% elsif @batch.downloaded? || @batch.invoiced? %>
+    <span class="text-xs text-slate-500">Downloaded <%= @batch.downloaded_at&.strftime("%d %b %H:%M") %> by <%= @batch.downloaded_by&.full_name %></span>
+  <% end %>
+<% end %>
+
+<div class="rounded-xl border border-slate-200 bg-white p-6 mx-auto max-w-2xl space-y-2 text-sm mb-4">
+  <div><span class="text-slate-500 w-40 inline-block">Seller</span><%= @batch.seller&.name %></div>
+  <div><span class="text-slate-500 w-40 inline-block">Branch</span><%= @batch.branch&.name %></div>
+  <div><span class="text-slate-500 w-40 inline-block">Orders / value</span><%= @batch.order_count %> · <%= number_with_precision(@batch.total_amount, precision: 2) %></div>
+  <div><span class="text-slate-500 w-40 inline-block">Status</span><%= @batch.status.titleize %></div>
+</div>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <div class="px-4 py-3 border-b border-slate-200 text-sm font-semibold">Orders in this batch</div>
+  <table class="w-full border-collapse min-w-[560px]">
+    <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+      <th class="px-4 py-2.5">Order #</th><th class="px-4 py-2.5">Store</th><th class="px-4 py-2.5 text-right">Total</th>
+    </tr></thead>
+    <tbody>
+      <% @orders.each do |o| %>
+        <tr class="border-b border-slate-100">
+          <td class="px-4 py-2.5 font-mono text-xs"><%= o.order_number %></td>
+          <td class="px-4 py-2.5 text-sm"><%= o.store.name %></td>
+          <td class="px-4 py-2.5 text-right font-mono text-sm"><%= number_with_precision(o.total_amount, precision: 2) %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>

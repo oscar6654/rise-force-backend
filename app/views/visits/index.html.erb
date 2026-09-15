@@ -1,0 +1,58 @@
+<% content_for :page_title, "Field visits" %>
+<% content_for :page_sub do %>Per-seller field activity — click a seller for the store-by-store detail<% end %>
+<% content_for :page_actions do %>
+  <% if can?(:visit, :download) %>
+    <%= link_to "Download CSV", download_visits_path(request.query_parameters), class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
+  <% end %>
+<% end %>
+
+<%# Top-line totals across the filtered set %>
+<div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+  <% [["Visits", @summary[:visits], "text-slate-900"], ["Sellers", @summary[:sellers], "text-slate-900"],
+      ["Off route", @summary[:off_route], "text-orange-700"], ["No order", @summary[:no_order], "text-amber-700"],
+      ["Geofence overrides", @summary[:override], "text-red-600"]].each do |label, value, color| %>
+    <div class="rounded-xl border border-slate-200 bg-white p-3">
+      <div class="text-[11px] uppercase tracking-wide text-slate-500 font-semibold"><%= label %></div>
+      <div class="text-xl font-semibold mt-0.5 <%= color %>"><%= value %></div>
+    </div>
+  <% end %>
+</div>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <%= form_with url: visits_path, method: :get, local: true, class: "px-4 py-3 border-b border-slate-200 flex flex-wrap gap-2 items-center" do %>
+    <% if @filter_branches && @filter_branches.size > 1 %>
+      <%= select_tag :branch_id, options_for_select([["All branches", ""]] + @filter_branches.map { |b| [b.name, b.id] }, params[:branch_id]), class: "rounded-md border border-slate-300 px-2 py-2 text-sm" %>
+    <% end %>
+    <label class="text-xs text-slate-500">From <%= date_field_tag :from, params[:from], class: "rounded-md border border-slate-300 px-2 py-2 text-sm" %></label>
+    <label class="text-xs text-slate-500">To <%= date_field_tag :to, params[:to], class: "rounded-md border border-slate-300 px-2 py-2 text-sm" %></label>
+    <%= submit_tag "Filter", class: "rounded-md border border-slate-300 text-sm px-3 py-2 hover:bg-slate-50 cursor-pointer" %>
+    <span class="text-xs text-slate-500 ml-auto"><%= @sellers_page.total_count %> sellers</span>
+  <% end %>
+
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse min-w-[820px]">
+      <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+        <th class="px-4 py-2.5">Seller</th>
+        <th class="px-4 py-2.5 text-right">Visits</th><th class="px-4 py-2.5 text-right">Stores</th>
+        <th class="px-4 py-2.5 text-right">Off route</th><th class="px-4 py-2.5 text-right">No order</th>
+        <th class="px-4 py-2.5 text-right">Overrides</th><th></th>
+      </tr></thead>
+      <tbody>
+        <% @rows.each do |r| %>
+          <% link = visit_path(r[:seller], request.query_parameters.except(:page)) %>
+          <tr class="border-b border-slate-100 hover:bg-slate-50 cursor-pointer" onclick="window.location='<%= link %>'">
+            <td class="px-4 py-3"><div class="text-sm font-medium text-[#1f4b99]"><%= r[:seller].name %></div><div class="text-[11px] text-slate-400"><%= r[:seller].branch&.name %></div></td>
+            <td class="px-4 py-3 text-right font-mono text-sm"><%= r[:visits] %></td>
+            <td class="px-4 py-3 text-right font-mono text-sm text-slate-600"><%= r[:stores] %></td>
+            <td class="px-4 py-3 text-right"><% if r[:off_route].positive? %><span class="font-mono text-sm text-orange-700 font-semibold"><%= r[:off_route] %></span><% else %><span class="text-slate-300">—</span><% end %></td>
+            <td class="px-4 py-3 text-right"><% if r[:no_order].positive? %><span class="font-mono text-sm text-amber-700"><%= r[:no_order] %></span><% else %><span class="text-slate-300">—</span><% end %></td>
+            <td class="px-4 py-3 text-right"><% if r[:override].positive? %><span class="font-mono text-sm text-red-600 font-semibold"><%= r[:override] %></span><% else %><span class="text-slate-300">—</span><% end %></td>
+            <td class="px-4 py-3 text-right text-slate-300 pr-4">›</td>
+          </tr>
+        <% end %>
+        <% if @rows.empty? %><tr><td colspan="7" class="px-4 py-8 text-center text-sm text-slate-500">No visits match these filters.</td></tr><% end %>
+      </tbody>
+    </table>
+  </div>
+  <div class="px-4 py-3"><%= paginate @sellers_page if respond_to?(:paginate) %></div>
+</div>

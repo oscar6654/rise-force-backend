@@ -1,0 +1,69 @@
+<% content_for :page_title, "Import logs" %>
+<% content_for :page_sub do %>Bulk uploads and vcsi_rise sync history<% end %>
+<% if can?(:sync, :sync) %>
+  <% content_for :page_actions do %>
+    <% [["targets", "Sync targets"], ["sellout", "Sync sellout"], ["store_sellout", "Sync store sellout"], ["store_sku_sellout", "Sync distribution (SKU)"], ["store_targets", "Compute store targets"]].each do |kind, label| %>
+      <%= button_to label, sync_path(kind), method: :post,
+            class: "rounded-md border border-slate-300 bg-white text-slate-700 text-sm font-semibold px-3 py-2 hover:bg-slate-50" %>
+    <% end %>
+  <% end %>
+<% end %>
+
+<% if @has_active_jobs %>
+  <div class="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-[#1f4b99]">
+    <span class="inline-block h-2 w-2 rounded-full bg-[#1f4b99] animate-pulse"></span>
+    A job is running — this page refreshes automatically every few seconds.
+  </div>
+<% end %>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse min-w-[820px]">
+      <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+        <th class="px-4 py-2.5">When</th><th class="px-4 py-2.5">Job</th><th class="px-4 py-2.5">File</th>
+        <th class="px-4 py-2.5">By</th><th class="px-4 py-2.5 text-right">Rows</th><th class="px-4 py-2.5">Result</th><th></th>
+      </tr></thead>
+      <tbody>
+        <% @logs.each do |log| %>
+          <tr class="border-b border-slate-100 hover:bg-slate-50">
+            <td class="px-4 py-3 font-mono text-xs text-slate-600 whitespace-nowrap"><%= log.created_at.strftime("%d %b %H:%M") %></td>
+            <td class="px-4 py-3 text-sm font-medium whitespace-nowrap"><%= log.job_type.titleize %></td>
+            <td class="px-4 py-3 font-mono text-xs text-slate-500"><%= log.filename || "—" %></td>
+            <td class="px-4 py-3 text-sm text-slate-600 whitespace-nowrap"><%= log.triggered_by&.full_name || "system" %></td>
+            <td class="px-4 py-3 text-right font-mono text-sm text-slate-600">
+              <% if log.pending? || log.running? %>
+                <% known = log.total_rows.to_i.positive? %>
+                <% pct = known ? (100.0 * log.processed_rows / log.total_rows).round : 0 %>
+                <div class="w-32 ml-auto">
+                  <div class="h-1.5 rounded-full bg-slate-200 overflow-hidden">
+                    <div class="h-full bg-[#1f4b99] transition-all duration-500 <%= 'animate-pulse' unless known %>" style="width: <%= known ? pct : 100 %>%"></div>
+                  </div>
+                  <div class="text-[11px] text-slate-500 mt-0.5"><%= known ? "#{log.processed_rows}/#{log.total_rows} · #{pct}%" : "starting…" %></div>
+                </div>
+              <% else %>
+                <%= log.processed_rows %>/<%= log.total_rows %>
+              <% end %>
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              <span class="rounded-full text-[11px] font-semibold px-2 py-0.5 <%= { 'completed' => 'bg-emerald-100 text-emerald-700', 'partial' => 'bg-amber-100 text-amber-700', 'failed' => 'bg-red-100 text-red-700', 'running' => 'bg-blue-100 text-[#1f4b99] animate-pulse', 'pending' => 'bg-blue-100 text-[#1f4b99]' }[log.status] || 'bg-slate-100 text-slate-600' %>"><%= log.status.titleize %></span>
+              <% if log.error_count.positive? %><span class="text-xs text-red-600 ml-1"><%= log.error_count %> rejected</span><% end %>
+            </td>
+            <td class="px-4 py-3 text-right whitespace-nowrap"><%= link_to "View", job_log_path(log), class: "text-sm font-semibold text-[#1f4b99] hover:underline" %></td>
+          </tr>
+        <% end %>
+        <% if @logs.empty? %><tr><td colspan="7" class="px-4 py-8 text-center text-sm text-slate-500">No import or sync jobs yet.</td></tr><% end %>
+      </tbody>
+    </table>
+  </div>
+  <div class="px-4 py-3"><%= paginate @logs if respond_to?(:paginate) %></div>
+</div>
+
+<% if @has_active_jobs %>
+  <%# Poll while a job runs: reload only on the first page so pagination isn't yanked away. %>
+  <script>
+    (function () {
+      var onFirstPage = !/[?&]page=[2-9]/.test(window.location.search);
+      if (onFirstPage) { setTimeout(function () { window.location.reload(); }, 3000); }
+    })();
+  </script>
+<% end %>

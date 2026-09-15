@@ -1,0 +1,30 @@
+<% content_for :page_title, "Assortments" %>
+<% content_for :page_sub do %>Must-stock lists per channel / store category — drive the app's gap detection<% end %>
+<% content_for :page_actions do %>
+  <% if can?(:assortment, :create) %>
+    <%= link_to "New assortment", new_assortment_path, class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
+  <% end %>
+<% end %>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse min-w-[720px]">
+      <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+        <th class="px-4 py-2.5">Name</th><th class="px-4 py-2.5">Branch</th><th class="px-4 py-2.5">Channel</th>
+        <th class="px-4 py-2.5">Category</th><th class="px-4 py-2.5">SKUs</th><th></th>
+      </tr></thead>
+      <tbody>
+        <% @assortments.each do |a| %>
+          <tr class="border-b border-slate-100 hover:bg-slate-50">
+            <td class="px-4 py-3 text-sm font-medium"><%= a.name %></td>
+            <td class="px-4 py-3 text-sm text-slate-600"><%= a.branch&.name || "All" %></td>
+            <td class="px-4 py-3 text-sm text-slate-600"><%= a.channel&.name || "Any" %></td>
+            <td class="px-4 py-3 text-sm text-slate-600"><%= a.store_category_ref&.label || "Any" %></td>
+            <td class="px-4 py-3 text-sm text-slate-600"><%= a.assortment_items.count %></td>
+            <td class="px-4 py-3 text-right"><%= link_to "Open", assortment_path(a), class: "text-sm font-semibold text-[#1f4b99] hover:underline" %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+</div>

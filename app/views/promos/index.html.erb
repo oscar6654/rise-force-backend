@@ -1,0 +1,35 @@
+<% content_for :page_title, "Promos" %>
+<% content_for :page_actions do %>
+  <% if can?(:promo, :create) %>
+    <%= link_to "↑ Bulk upload", new_import_path("promos"), class: "rounded-md border border-slate-300 bg-white text-slate-700 text-sm font-semibold px-3 py-2 hover:bg-slate-50" %>
+    <%= link_to "New promo", new_promo_path, class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
+  <% end %>
+<% end %>
+
+<div class="flex gap-2 mb-4 flex-wrap">
+  <% %w[active scheduled ended cancelled].each do |tab| %>
+    <%= link_to tab.titleize, promos_path(tab: tab),
+          class: "px-3 py-1.5 text-sm font-medium rounded-md #{tab == @tab ? 'bg-[#1f4b99] text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}" %>
+  <% end %>
+</div>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse min-w-[720px]">
+      <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+        <th class="px-4 py-2.5">Promo</th><th class="px-4 py-2.5">Mechanic</th><th class="px-4 py-2.5">Window</th><th></th>
+      </tr></thead>
+      <tbody>
+        <% @promos.each do |p| %>
+          <tr class="border-b border-slate-100 hover:bg-slate-50">
+            <td class="px-4 py-3"><div class="text-sm font-medium"><%= p.name %></div><div class="text-xs font-mono text-slate-500"><%= p.code %></div></td>
+            <td class="px-4 py-3 text-sm text-slate-600"><%= p.mechanic_type.titleize %></td>
+            <td class="px-4 py-3 text-sm text-slate-600"><%= p.start_date %> → <%= p.end_date %></td>
+            <td class="px-4 py-3 text-right"><%= link_to "Open", promo_path(p), class: "text-sm font-semibold text-[#1f4b99] hover:underline" %></td>
+          </tr>
+        <% end %>
+        <% if @promos.empty? %><tr><td colspan="4" class="px-4 py-8 text-center text-sm text-slate-500">No <%= @tab %> promos.</td></tr><% end %>
+      </tbody>
+    </table>
+  </div>
+</div>

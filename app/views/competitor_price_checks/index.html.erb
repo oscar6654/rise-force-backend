@@ -1,0 +1,44 @@
+<% content_for :page_title, "Competitor & price checks" %>
+<% content_for :page_sub do %>Shelf prices and competitor products logged by sellers<% end %>
+<% content_for :page_actions do %>
+  <% if can?(:competitor_check, :download) %>
+    <%= link_to "Download CSV", download_competitor_price_checks_path(request.query_parameters), class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
+  <% end %>
+<% end %>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <%= form_with url: competitor_price_checks_path, method: :get, local: true, class: "px-4 py-3 border-b border-slate-200 flex flex-wrap gap-2 items-center" do %>
+    <% if @filter_branches && @filter_branches.size > 1 %>
+      <%= select_tag :branch_id, options_for_select([["All branches",""]] + @filter_branches.map { |b| [b.name, b.id] }, params[:branch_id]), class: "rounded-md border border-slate-300 px-2 py-2 text-sm" %>
+    <% end %>
+    <label class="text-xs text-slate-500">From <%= date_field_tag :from, params[:from], class: "rounded-md border border-slate-300 px-2 py-2 text-sm" %></label>
+    <label class="text-xs text-slate-500">To <%= date_field_tag :to, params[:to], class: "rounded-md border border-slate-300 px-2 py-2 text-sm" %></label>
+    <%= submit_tag "Filter", class: "rounded-md border border-slate-300 text-sm px-3 py-2 hover:bg-slate-50 cursor-pointer" %>
+    <span class="text-xs text-slate-500 ml-auto"><%= @checks.total_count %> checks</span>
+  <% end %>
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse min-w-[900px]">
+      <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+        <th class="px-4 py-2.5">Store</th><th class="px-4 py-2.5">Seller</th><th class="px-4 py-2.5">Date</th>
+        <th class="px-4 py-2.5">Our product</th><th class="px-4 py-2.5 text-right">Our ₱</th>
+        <th class="px-4 py-2.5">Competitor</th><th class="px-4 py-2.5 text-right">Their ₱</th><th class="px-4 py-2.5">Notes</th>
+      </tr></thead>
+      <tbody>
+        <% @checks.each do |c| %>
+          <tr class="border-b border-slate-100 hover:bg-slate-50">
+            <td class="px-4 py-3 text-sm"><%= c.visit.store&.name %> <span class="text-xs text-slate-400"><%= c.visit.store&.branch&.name %></span></td>
+            <td class="px-4 py-3 text-sm text-slate-600"><%= c.visit.seller&.name %></td>
+            <td class="px-4 py-3 text-xs text-slate-500"><%= c.visit.visit_date %></td>
+            <td class="px-4 py-3 text-sm"><%= c.product&.description || c.product_label %></td>
+            <td class="px-4 py-3 text-right font-mono text-sm"><%= c.our_price && number_with_precision(c.our_price, precision: 2) %></td>
+            <td class="px-4 py-3 text-sm text-slate-600"><%= c.competitor_name %></td>
+            <td class="px-4 py-3 text-right font-mono text-sm"><%= c.competitor_price && number_with_precision(c.competitor_price, precision: 2) %></td>
+            <td class="px-4 py-3 text-xs text-slate-500"><%= truncate(c.notes, length: 40) %></td>
+          </tr>
+        <% end %>
+        <% if @checks.empty? %><tr><td colspan="8" class="px-4 py-8 text-center text-sm text-slate-500">No competitor/price checks in range.</td></tr><% end %>
+      </tbody>
+    </table>
+  </div>
+  <div class="px-4 py-3"><%= paginate @checks if respond_to?(:paginate) %></div>
+</div>

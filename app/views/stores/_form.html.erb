@@ -1,0 +1,105 @@
+<%= form_with model: store, local: true do |f| %>
+  <%= render "shared/form_errors", model: store %>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <%= f.label :store_code, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :store_code, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :name, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :name, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :owner_name, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :owner_name, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :contact_number, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :contact_number, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div class="md:col-span-2">
+      <%= f.label :address, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :address, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :latitude, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.number_field :latitude, step: "0.000001", class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :longitude, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.number_field :longitude, step: "0.000001", class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <% if current_user.all_branches? %>
+      <div>
+        <%= f.label :branch_id, "Branch", class: "block text-sm font-medium text-slate-700 mb-1" %>
+        <%= f.collection_select :branch_id, Branch.order(:name), :id, :name, {}, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+      </div>
+    <% end %>
+    <div>
+      <%= f.label :channel_id, "Channel", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.collection_select :channel_id, Channel.order(:name), :id, :name, { include_blank: "—" }, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm", data: { controller: "tom-select" } %>
+    </div>
+    <div>
+      <%= f.label :route_id, "Route", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.collection_select :route_id, Route.order(:code), :id, :display_name, { include_blank: "— unrouted —" }, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm", data: { controller: "tom-select", "tom-select-placeholder-value": "Search routes…" } %>
+    </div>
+    <div>
+      <%= f.label :category_code, "Category", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.select :category_code, StoreCategory.ordered.map { |c| [c.label, c.code] },
+            { include_blank: "—", selected: store.store_category&.code },
+            class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm",
+            data: { controller: "tom-select", "tom-select-create-value": true, "tom-select-placeholder-value": "Pick or type a new category…" } %>
+    </div>
+    <div>
+      <%= f.label :seller_id, "Assigned seller", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.collection_select :seller_id, Seller.order(:name), :id, :name, { include_blank: "— via route / unassigned —" },
+            class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm",
+            data: { controller: "tom-select", "tom-select-placeholder-value": "Search sellers…" } %>
+    </div>
+    <div>
+      <%= f.label :status, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.select :status, Store.statuses.keys.map { |s| [s.titleize, s] }, {}, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+  </div>
+
+  <div class="mt-4 pt-4 border-t border-slate-100" data-controller="frequency">
+    <div class="text-sm font-semibold text-slate-700 mb-3">Visit frequency</div>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div>
+        <%= f.label :visit_frequency, "Frequency", class: "block text-sm font-medium text-slate-700 mb-1" %>
+        <%= f.select :visit_frequency, [["F2 — twice/month", "f2"], ["F4 — weekly", "f4"]], {},
+              class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm",
+              data: { "frequency-target": "frequency", action: "change->frequency#sync" } %>
+      </div>
+      <div>
+        <%= f.label :week_pattern, "Week pattern", class: "block text-sm font-medium text-slate-700 mb-1" %>
+        <%= f.select :week_pattern, [["Every week", "every_week"], ["Weeks 1 & 3", "weeks_1_3"], ["Weeks 2 & 4", "weeks_2_4"]], {},
+              class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm",
+              data: { "frequency-target": "pattern" } %>
+      </div>
+      <div>
+        <%= f.label :visit_day, class: "block text-sm font-medium text-slate-700 mb-1" %>
+        <%= f.select :visit_day, Store.visit_days.keys.map { |d| [d.titleize, d] }, { include_blank: "—" }, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+      </div>
+      <div>
+        <%= f.label :visit_sequence, "Sequence", class: "block text-sm font-medium text-slate-700 mb-1" %>
+        <%= f.number_field :visit_sequence, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-4 pt-4 border-t border-slate-100">
+    <div class="text-sm font-semibold text-slate-700 mb-1">vcsi_rise link</div>
+    <p class="text-xs text-slate-500 mb-3">Set this store's <code>customer_id</code> from the vcsi_rise customer master. This is the join key that pulls actual invoiced sellout and lets SFA derive the store target from history. Leave blank if the store isn't in vcsi_rise yet (e.g. a new provisional store).</p>
+    <div class="max-w-sm">
+      <%= f.label :vcsi_customer_ref, "vcsi_rise customer_id", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :vcsi_customer_ref, placeholder: "e.g. CA_636562", class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono" %>
+      <p class="text-xs text-slate-400 mt-1">Validate all store links under Administration → <%= link_to "vcsi_rise linking", admin_vcsi_linking_path(validate: 1), class: "text-[#1f4b99] hover:underline" %>.</p>
+    </div>
+  </div>
+
+  <div class="mt-5 flex items-center gap-2">
+    <%= f.submit(store.persisted? ? "Save changes" : "Create store", class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-4 py-2 hover:bg-[#17386f] cursor-pointer") %>
+    <%= link_to "Cancel", stores_path, class: "text-sm text-slate-500 hover:underline px-2" %>
+  </div>
+<% end %>

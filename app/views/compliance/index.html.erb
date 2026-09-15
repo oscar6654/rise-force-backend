@@ -1,0 +1,46 @@
+<% content_for :page_title, "Assortment compliance" %>
+<% content_for :page_sub do %>Per-seller must-stock gaps — click a seller for the store detail<% end %>
+<% content_for :page_actions do %>
+  <% if can?(:store, :view) %>
+    <%= link_to "Download CSV", download_compliance_index_path(request.query_parameters), class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
+  <% end %>
+<% end %>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <%= form_with url: compliance_index_path, method: :get, local: true, class: "px-4 py-3 border-b border-slate-200 flex flex-wrap gap-2 items-center" do %>
+    <% if @filter_branches && @filter_branches.size > 1 %>
+      <%= select_tag :branch_id, options_for_select([["All branches", ""]] + @filter_branches.map { |b| [b.name, b.id] }, params[:branch_id]), class: "rounded-md border border-slate-300 px-2 py-2 text-sm" %>
+    <% end %>
+    <label class="text-xs text-slate-500 flex items-center gap-1">Below
+      <%= select_tag :threshold, options_for_select([["100% (any gap)", 100], ["90%", 90], ["75%", 75], ["50%", 50]], @threshold), class: "rounded-md border border-slate-300 px-2 py-2 text-sm" %>
+      compliance
+    </label>
+    <%= submit_tag "Filter", class: "rounded-md border border-slate-300 text-sm px-3 py-2 hover:bg-slate-50 cursor-pointer" %>
+    <span class="text-xs text-slate-500 ml-auto"><%= @total_below %> of <%= @total_with_assortment %> stores below <%= @threshold %>%</span>
+  <% end %>
+
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse min-w-[760px]">
+      <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+        <th class="px-4 py-2.5">Seller</th>
+        <th class="px-4 py-2.5 text-right">Stores below</th><th class="px-4 py-2.5 text-right">Avg compliance</th>
+        <th class="px-4 py-2.5">Worst store</th><th></th>
+      </tr></thead>
+      <tbody>
+        <% @groups.each do |g| %>
+          <% sid = g[:seller]&.id || "unassigned" %>
+          <% link = compliance_path(sid, request.query_parameters.except(:page)) %>
+          <tr class="border-b border-slate-100 hover:bg-slate-50 cursor-pointer" onclick="window.location='<%= link %>'">
+            <td class="px-4 py-3"><div class="text-sm font-medium text-[#1f4b99]"><%= g[:seller]&.name || "Unassigned" %></div><div class="text-[11px] text-slate-400"><%= g[:seller]&.branch&.name %></div></td>
+            <td class="px-4 py-3 text-right"><span class="rounded px-2 py-0.5 text-xs font-semibold bg-red-50 text-red-700"><%= g[:count] %></span></td>
+            <td class="px-4 py-3 text-right font-mono text-sm <%= g[:avg] >= 75 ? 'text-amber-700' : 'text-red-600' %>"><%= g[:avg] %>%</td>
+            <td class="px-4 py-3 text-sm text-slate-600"><%= g[:worst][:store].name %> <span class="text-[11px] text-slate-400">(<%= g[:worst][:pct] %>%)</span></td>
+            <td class="px-4 py-3 text-right text-slate-300 pr-4">›</td>
+          </tr>
+        <% end %>
+        <% if @groups.empty? %><tr><td colspan="5" class="px-4 py-8 text-center text-sm text-slate-500">No stores below <%= @threshold %>% — full compliance, or no must-stock assortment defined.</td></tr><% end %>
+      </tbody>
+    </table>
+  </div>
+  <div class="px-4 py-3"><%= paginate @groups if respond_to?(:paginate) %></div>
+</div>

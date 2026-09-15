@@ -1,0 +1,50 @@
+<% content_for :page_title, "Product master" %>
+<% content_for :page_actions do %>
+  <% if can?(:product, :create) %>
+    <%= link_to "↑ Bulk upload", new_import_path("products"), class: "rounded-md border border-slate-300 bg-white text-slate-700 text-sm font-semibold px-3 py-2 hover:bg-slate-50" %>
+    <%= link_to "New product", new_product_path, class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
+  <% end %>
+<% end %>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <%= form_with url: products_path, method: :get, local: true, class: "px-4 py-3 border-b border-slate-200 flex flex-wrap items-center gap-2" do %>
+    <%= text_field_tag :q, params[:q], placeholder: "Search item key, description or barcode…", class: "flex-1 min-w-[200px] rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    <%= select_tag :tier, options_for_select([["All tiers", ""]] + ProductTier.ordered.map { |t| [t.name, t.id] }, params[:tier]), class: "rounded-md border border-slate-300 px-2 py-2 text-sm" %>
+    <%= submit_tag "Filter", class: "rounded-md border border-slate-300 text-sm px-3 py-2 hover:bg-slate-50 cursor-pointer" %>
+    <span class="text-xs text-slate-500 ml-auto"><%= @products.total_count %> SKUs</span>
+  <% end %>
+
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse min-w-[960px]">
+      <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+        <th class="px-4 py-2.5">Item key</th><th class="px-4 py-2.5">Description</th><th class="px-4 py-2.5">Brand</th>
+        <th class="px-4 py-2.5">Category</th><th class="px-4 py-2.5">Tier</th>
+        <th class="px-4 py-2.5">IT barcode</th><th class="px-4 py-2.5">CS barcode</th>
+        <th class="px-4 py-2.5 text-right">Pcs/case</th><th class="px-4 py-2.5">Status</th><th></th>
+      </tr></thead>
+      <tbody>
+        <% @products.each do |p| %>
+          <tr class="border-b border-slate-100 hover:bg-slate-50">
+            <td class="px-4 py-3 font-mono text-xs text-slate-600 whitespace-nowrap"><%= p.sku %></td>
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-2">
+                <% if p.photo.attached? %><%= image_tag cdn_variant_url(p.photo, resize_to_limit: [80,80]), class: "w-8 h-8 rounded object-cover border border-slate-200" %>
+                <% else %><div class="w-8 h-8 rounded bg-slate-100 grid place-items-center text-slate-300 text-xs">▣</div><% end %>
+                <span class="text-sm font-medium"><%= p.description %></span>
+              </div>
+            </td>
+            <td class="px-4 py-3 text-sm text-slate-600"><%= p.brand&.name %></td>
+            <td class="px-4 py-3 text-sm text-slate-600"><%= p.product_category&.name %></td>
+            <td class="px-4 py-3 text-sm whitespace-nowrap"><%= p.product_tier&.name || "—" %></td>
+            <td class="px-4 py-3 font-mono text-xs text-slate-500"><%= p.it_barcode %></td>
+            <td class="px-4 py-3 font-mono text-xs text-slate-500"><%= p.cs_barcode %></td>
+            <td class="px-4 py-3 text-right font-mono text-sm text-slate-600"><%= p.pcs_per_case %></td>
+            <td class="px-4 py-3"><span class="rounded-full text-[11px] font-semibold px-2 py-0.5 <%= p.active? ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600' %>"><%= p.status.titleize %></span></td>
+            <td class="px-4 py-3 text-right"><% if can?(:product, :update) %><%= link_to "Edit", edit_product_path(p), class: "text-sm font-semibold text-[#1f4b99] hover:underline" %><% end %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+  <div class="px-4 py-3"><%= paginate @products if respond_to?(:paginate) %></div>
+</div>

@@ -1,0 +1,61 @@
+<% content_for :page_title, "Permission matrix" %>
+<% content_for :page_sub do %>Module access by role — View · Create/Edit · Approve · Publish<% end %>
+<% content_for :page_actions do %>
+  <%= link_to "← Users", admin_users_path, class: "rounded-md border border-slate-300 bg-white text-slate-700 text-sm font-semibold px-3 py-2 hover:bg-slate-50" %>
+  <% if can?(:role, :create) %>
+    <%= link_to "New role", new_admin_role_path, class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
+  <% end %>
+<% end %>
+
+<%
+  badge = ->(actions) do
+    labels = []
+    labels << "View"   if actions.include?("view")
+    labels << "Edit"   if (actions & %w[create update]).any?
+    labels << "Approve" if actions.include?("approve")
+    labels << "Publish" if actions.include?("publish")
+    labels << "Sync"    if actions.include?("sync")
+    labels << "Download" if actions.include?("download")
+    labels
+  end
+%>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse min-w-[820px]">
+      <thead>
+        <tr class="bg-slate-50 border-b border-slate-200">
+          <th class="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">Module</th>
+          <% @roles.each do |role| %>
+            <th class="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap">
+              <% if can?(:role, :update) %>
+                <%= link_to role.name.titleize, edit_admin_role_path(role), class: "text-[#1f4b99] hover:underline" %>
+              <% else %><%= role.name.titleize %><% end %>
+            </th>
+          <% end %>
+        </tr>
+      </thead>
+      <tbody>
+        <% @resources.each do |resource| %>
+          <tr class="border-b border-slate-100">
+            <td class="px-4 py-2.5 text-sm font-medium whitespace-nowrap"><%= resource.titleize %></td>
+            <% @roles.each do |role| %>
+              <% labels = badge.call(@grants[[resource, role.id]]) %>
+              <td class="px-3 py-2.5 text-center">
+                <% if labels.empty? %>
+                  <span class="text-slate-300">—</span>
+                <% else %>
+                  <div class="flex flex-wrap gap-1 justify-center">
+                    <% labels.each do |l| %>
+                      <span class="rounded bg-blue-50 text-[#1f4b99] text-[10px] font-semibold px-1.5 py-0.5"><%= l %></span>
+                    <% end %>
+                  </div>
+                <% end %>
+              </td>
+            <% end %>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+</div>

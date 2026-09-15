@@ -1,0 +1,8 @@
+<% if model.errors.any? %>
+  <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+    <%= pluralize(model.errors.count, "error") %> prevented saving:
+    <ul class="list-disc list-inside mt-1">
+      <% model.errors.full_messages.each do |msg| %><li><%= msg %></li><% end %>
+    </ul>
+  </div>
+<% end %>

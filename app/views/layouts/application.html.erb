@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= content_for(:title) || "SFA Console" %></title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="SFA Console">
+    <meta name="mobile-web-app-capable" content="yes">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+
+    <%= yield :head %>
+
+    <link rel="icon" href="/icon.png" type="image/png">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/icon.png">
+
+    <%= stylesheet_link_tag "tailwind", "data-turbo-track": "reload" %>
+    <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
+    <%= stylesheet_link_tag "tom-select", "data-turbo-track": "reload" %>
+    <script src="/tom-select.min.js"></script>
+    <%= javascript_importmap_tags %>
+  </head>
+
+  <body class="bg-slate-100 text-slate-900 antialiased" data-controller="sidebar">
+    <div class="flex min-h-screen">
+      <%# Mobile backdrop %>
+      <div data-sidebar-target="backdrop" data-action="click->sidebar#close"
+           class="hidden fixed inset-0 bg-black/40 z-30 md:hidden"></div>
+
+      <%# ---- Sidebar ---- %>
+      <aside data-sidebar-target="panel"
+             class="hidden md:flex flex-col md:static fixed inset-y-0 left-0 z-40 w-60 max-w-[80vw] shrink-0 bg-[#0f1b2d] text-slate-300 overflow-y-auto">
+        <div class="flex items-center gap-2.5 px-4 py-4 border-b border-white/10">
+          <div class="grid place-items-center w-8 h-8 rounded-md bg-[#2f6fd0] text-white font-bold text-xs">SF</div>
+          <div class="min-w-0">
+            <div class="text-[13px] font-semibold text-white leading-tight">SFA Console</div>
+            <div class="text-[11px] text-slate-400 truncate"><%= SystemSetting.get("company_name", "Distribution Inc.") %></div>
+          </div>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto px-2 py-3 space-y-4">
+          <% nav_sections.each do |section, items| %>
+            <div>
+              <div class="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500"><%= section %></div>
+              <% items.each do |item| %>
+                <%= link_to item.path,
+                      class: "flex items-center gap-2.5 px-2.5 py-2 rounded-md text-[13px] #{active_nav?(item.path) ? 'bg-white/10 text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white'}" do %>
+                  <span class="w-4 text-center opacity-90"><%= item.icon %></span>
+                  <span class="truncate"><%= item.label %></span>
+                <% end %>
+              <% end %>
+            </div>
+          <% end %>
+        </nav>
+
+        <div class="flex items-center gap-2.5 px-3.5 py-3 border-t border-white/10">
+          <div class="grid place-items-center w-7 h-7 rounded-full bg-slate-600 text-slate-200 text-[11px] font-semibold"><%= current_user.initials %></div>
+          <div class="min-w-0 flex-1">
+            <div class="text-xs text-white font-medium truncate"><%= current_user.full_name %></div>
+            <div class="text-[10px] text-slate-400"><%= current_user.primary_role_display %></div>
+          </div>
+          <%= button_to destroy_user_session_path, method: :delete, form_class: "shrink-0",
+                class: "text-slate-400 hover:text-white text-xs", title: "Sign out" do %>⎋<% end %>
+        </div>
+      </aside>
+
+      <%# ---- Main ---- %>
+      <div class="flex-1 min-w-0 flex flex-col">
+        <header class="bg-white border-b border-slate-200 px-6 py-3.5 flex items-center gap-4">
+          <button type="button" data-action="sidebar#toggle"
+                  class="md:hidden grid place-items-center w-9 h-9 rounded-md border border-slate-300 text-slate-600 hover:bg-slate-50 shrink-0" aria-label="Menu">☰</button>
+          <div class="flex-1 min-w-0">
+            <h1 class="text-[17px] font-semibold tracking-tight leading-tight"><%= content_for(:page_title) || content_for(:title) || "Dashboard" %></h1>
+            <% if content_for?(:page_sub) %>
+              <p class="text-xs text-slate-500 mt-0.5"><%= yield :page_sub %></p>
+            <% end %>
+          </div>
+          <div class="flex items-center gap-2 shrink-0"><%= yield :page_actions %></div>
+        </header>
+
+        <main class="flex-1 min-w-0 px-6 py-5">
+          <% flash.each do |level, message| %>
+            <div class="mb-4 rounded-lg border px-4 py-3 text-sm <%= flash_class(level) %>"><%= message %></div>
+          <% end %>
+          <%= yield %>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

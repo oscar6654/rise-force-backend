@@ -1,0 +1,42 @@
+<% content_for :page_title, "Stock counts" %>
+<% content_for :page_sub do %>In-store shelf audits captured by sellers<% end %>
+<% content_for :page_actions do %>
+  <% if can?(:stock_count, :download) %>
+    <%= link_to "Download CSV", download_stock_counts_path(request.query_parameters), class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
+  <% end %>
+<% end %>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <%= form_with url: stock_counts_path, method: :get, local: true, class: "px-4 py-3 border-b border-slate-200 flex flex-wrap gap-2 items-center" do %>
+    <% if @filter_branches && @filter_branches.size > 1 %>
+      <%= select_tag :branch_id, options_for_select([["All branches",""]] + @filter_branches.map { |b| [b.name, b.id] }, params[:branch_id]), class: "rounded-md border border-slate-300 px-2 py-2 text-sm" %>
+    <% end %>
+    <label class="text-xs text-slate-500">From <%= date_field_tag :from, params[:from], class: "rounded-md border border-slate-300 px-2 py-2 text-sm" %></label>
+    <label class="text-xs text-slate-500">To <%= date_field_tag :to, params[:to], class: "rounded-md border border-slate-300 px-2 py-2 text-sm" %></label>
+    <%= submit_tag "Filter", class: "rounded-md border border-slate-300 text-sm px-3 py-2 hover:bg-slate-50 cursor-pointer" %>
+    <span class="text-xs text-slate-500 ml-auto"><%= @counts.total_count %> counts</span>
+  <% end %>
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse min-w-[820px]">
+      <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+        <th class="px-4 py-2.5">Store</th><th class="px-4 py-2.5">Seller</th><th class="px-4 py-2.5">Visit date</th>
+        <th class="px-4 py-2.5">SKU</th><th class="px-4 py-2.5">Product</th><th class="px-4 py-2.5 text-right">Qty</th><th class="px-4 py-2.5">Prefill</th>
+      </tr></thead>
+      <tbody>
+        <% @counts.each do |c| %>
+          <tr class="border-b border-slate-100 hover:bg-slate-50">
+            <td class="px-4 py-3 text-sm"><%= c.visit.store&.name %> <span class="text-xs text-slate-400"><%= c.visit.store&.branch&.name %></span></td>
+            <td class="px-4 py-3 text-sm text-slate-600"><%= c.visit.seller&.name %></td>
+            <td class="px-4 py-3 text-xs text-slate-500"><%= c.visit.visit_date %></td>
+            <td class="px-4 py-3 font-mono text-xs text-slate-600"><%= c.product&.sku %></td>
+            <td class="px-4 py-3 text-sm"><%= c.product&.description %></td>
+            <td class="px-4 py-3 text-right font-mono text-sm"><%= number_with_precision(c.qty, precision: 0) %></td>
+            <td class="px-4 py-3 text-xs text-slate-500"><%= c.prefilled_from.titleize %></td>
+          </tr>
+        <% end %>
+        <% if @counts.empty? %><tr><td colspan="7" class="px-4 py-8 text-center text-sm text-slate-500">No stock counts in range.</td></tr><% end %>
+      </tbody>
+    </table>
+  </div>
+  <div class="px-4 py-3"><%= paginate @counts if respond_to?(:paginate) %></div>
+</div>

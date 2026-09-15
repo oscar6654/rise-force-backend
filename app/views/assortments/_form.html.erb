@@ -1,0 +1,51 @@
+<%= form_with model: assortment, local: true do |f| %>
+  <%= render "shared/form_errors", model: assortment %>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="md:col-span-2">
+      <%= f.label :name, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :name, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :branch_id, "Branch (blank = all)", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.collection_select :branch_id, Branch.order(:name), :id, :name, { include_blank: "All branches" }, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :channel_id, "Channel (blank = any)", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.collection_select :channel_id, Channel.order(:name), :id, :name, { include_blank: "Any channel" }, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :store_category, "Store category (blank = any)", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.select :store_category_ref_id, StoreCategory.ordered.map { |c| [c.label, c.id] }, { include_blank: "Any category" }, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :status, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.select :status, Assortment.statuses.keys.map { |s| [s.titleize, s] }, {}, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :assortment_type_id, "Type", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.collection_select :assortment_type_id, AssortmentType.enabled.ordered, :id, :name, {}, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+      <p class="text-[11px] text-slate-400 mt-1">Used for assortment-type achievement &amp; incentives. <%= link_to "Manage types", assortment_types_path, class: "text-[#1f4b99] hover:underline" %> to add your own.</p>
+    </div>
+    <div>
+      <%= f.label :effective_from, "Effective from (blank = always)", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.date_field :effective_from, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :effective_to, "Effective to (blank = open-ended)", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.date_field :effective_to, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div class="md:col-span-2">
+      <label class="block text-sm font-medium text-slate-700 mb-1">Must-stock items (by IT barcode)</label>
+      <% selected_barcodes = assortment.products.map(&:it_barcode).compact.uniq %>
+      <%= select_tag "assortment[it_barcodes][]",
+            options_for_select(Product.barcode_options, selected_barcodes),
+            multiple: true, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm",
+            data: { controller: "tom-select", "tom-select-placeholder-value": "Search by description or IT barcode…" } %>
+      <p class="text-[11px] text-slate-400 mt-1">Pick by IT barcode — one barcode auto-covers every item_key/SKU that shares it. Search by description or barcode.</p>
+    </div>
+  </div>
+  <div class="mt-5 flex items-center gap-2">
+    <%= f.submit(assortment.persisted? ? "Save changes" : "Create assortment", class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-4 py-2 hover:bg-[#17386f] cursor-pointer") %>
+    <%= link_to "Cancel", assortments_path, class: "text-sm text-slate-500 hover:underline px-2" %>
+  </div>
+<% end %>
