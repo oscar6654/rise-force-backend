@@ -8,6 +8,7 @@
   <div><span class="text-slate-500 w-40 inline-block">Address</span><%= @store.address %></div>
   <div><span class="text-slate-500 w-40 inline-block">Branch / Channel</span><%= @store.branch&.name %> · <%= @store.channel&.name %></div>
   <div><span class="text-slate-500 w-40 inline-block">Category</span><%= @store.store_category&.label || "—" %></div>
+  <div><span class="text-slate-500 w-40 inline-block">Discount</span><%= @store.discount_rate.to_f.positive? ? "#{(@store.discount_rate * 100).to_f.round(2)}% (ex-VAT)" : "—" %></div>
   <div><span class="text-slate-500 w-40 inline-block">Assigned seller</span><%= @store.assigned_seller&.name || "—" %></div>
   <div><span class="text-slate-500 w-40 inline-block">Route</span><%= @store.route&.display_name || "—" %></div>
   <div><span class="text-slate-500 w-40 inline-block">Frequency</span><%= @store.visit_frequency&.upcase %> · <%= @store.week_pattern&.titleize %> · <%= @store.visit_day&.titleize %> #<%= @store.visit_sequence %></div>
