@@ -21,7 +21,7 @@ gem "jbuilder"
 
 # Pin json to the stable 2.x line: json 3.0.x changed JSON.parse's arity and
 # breaks ActiveSupport 8.1 encrypted cookie/session decoding.
-gem "json", "~> 2.7"
+gem "json", "~> 3.0"
 
 # Authentication for the backend console [https://github.com/heartcombo/devise]
 gem "devise"
