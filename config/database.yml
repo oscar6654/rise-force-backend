@@ -84,21 +84,67 @@ test:
 # Read https://guides.rubyonrails.org/configuring.html#configuring-a-database
 # for a full overview on how database connection configuration can be specified.
 #
+# Production runs four databases on the SAME PostgreSQL server:
+#   - primary : your app data
+#   - cache   : Solid Cache   (config.cache_store = :solid_cache_store)
+#   - queue   : Solid Queue    (config.solid_queue.connects_to database: :queue)
+#   - cable   : Solid Cable    (cable.yml -> connects_to database: :cable)
+# They MUST be separate databases: each is loaded from its own schema file
+# (db/{cache,queue,cable}_schema.rb) and a shared DB would be purged on load.
+#
+# On Hatchbox, DATABASE_URL is injected automatically. We parse it once and
+# reuse its host/port/username/password for all four connections, swapping
+# only the database name. So you only need to:
+#   1. Set (or let Hatchbox set) DATABASE_URL for the app.
+#   2. Create these four databases on that server, e.g.:
+#        sfa_backend_production
+#        sfa_backend_production_cache
+#        sfa_backend_production_queue
+#        sfa_backend_production_cable
+# If DATABASE_URL is absent, the explicit SFA_BACKEND_DATABASE_* fallbacks
+# below are used instead.
+<%
+  require "uri"
+  require "cgi"
+
+  _url = ENV["DATABASE_URL"].to_s
+  if !_url.empty?
+    _u  = URI.parse(_url)
+    _pg = {
+      "host"     => _u.host,
+      "port"     => (_u.port || 5432),
+      "username" => (_u.user     && CGI.unescape(_u.user)),
+      "password" => (_u.password && CGI.unescape(_u.password)),
+    }
+    _primary_db = _u.path.sub(%r{\A/}, "")
+    _primary_db = "sfa_backend_production" if _primary_db.empty?
+  else
+    _pg = {
+      "host"     => ENV.fetch("SFA_BACKEND_DATABASE_HOST", "localhost"),
+      "port"     => ENV.fetch("SFA_BACKEND_DATABASE_PORT", "5432"),
+      "username" => ENV.fetch("SFA_BACKEND_DATABASE_USERNAME", "sfa_backend"),
+      "password" => ENV["SFA_BACKEND_DATABASE_PASSWORD"],
+    }
+    _primary_db = ENV.fetch("SFA_BACKEND_DATABASE_NAME", "sfa_backend_production")
+  end
+%>
 production:
   primary: &primary_production
     <<: *default
-    database: sfa_backend_production
-    username: sfa_backend
-    password: <%= ENV["SFA_BACKEND_DATABASE_PASSWORD"] %>
+    host: <%= _pg["host"] %>
+    port: <%= _pg["port"] %>
+    username: <%= _pg["username"] %>
+    password: <%= _pg["password"] %>
+    database: <%= _primary_db %>
   cache:
     <<: *primary_production
-    database: sfa_backend_production_cache
+    database: <%= _primary_db %>_cache
     migrations_paths: db/cache_migrate
   queue:
     <<: *primary_production
-    database: sfa_backend_production_queue
+    database: <%= _primary_db %>_queue
     migrations_paths: db/queue_migrate
   cable:
     <<: *primary_production
-    database: sfa_backend_production_cable
+    database: <%= _primary_db %>_cable
     migrations_paths: db/cable_migrate
