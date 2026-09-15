@@ -32,9 +32,10 @@ RSpec.describe PromoEngine do
       promo.promo_lines.create!(role: :qualifying, product: product)
       eng = PromoEngine.new(store)
 
-      expect(eng.preview([{ product_id: product.id, quantity: 1, uom: "case" }])[:discount_total].to_f).to eq(0.0)   # 12 pc < 18
-      expect(eng.preview([{ product_id: product.id, quantity: 2, uom: "case" }])[:discount_total].to_f).to eq(8.0)   # 24 pc → 4% of ₱200
-      expect(eng.preview([{ product_id: product.id, quantity: 6, uom: "case" }])[:discount_total].to_f).to eq(42.0)  # 72 pc → 7% of ₱600
+      # Discounts are EX-VAT: 4% of (₱200 / 1.12) = 7.14; 7% of (₱600 / 1.12) = 37.50.
+      expect(eng.preview([{ product_id: product.id, quantity: 1, uom: "case" }])[:promo_savings].to_f).to eq(0.0)   # 12 pc < 18
+      expect(eng.preview([{ product_id: product.id, quantity: 2, uom: "case" }])[:promo_savings].to_f).to eq(7.14)  # 24 pc → 4% ex-VAT
+      expect(eng.preview([{ product_id: product.id, quantity: 6, uom: "case" }])[:promo_savings].to_f).to eq(37.5)  # 72 pc → 7% ex-VAT
     end
 
     it "nudges toward the next piece tier" do
@@ -52,7 +53,7 @@ RSpec.describe PromoEngine do
       # case_cost 100 / 12 pc ≈ ₱8.33/pc → 3 pc normal ≈ ₱25; bundle price ₱20 → saves ₱5/bundle.
       promo.promo_lines.create!(role: :qualifying, product: product, min_qty: 3, fixed_price: 20)
       # 6 pc = 2 bundles → ~₱10 off.
-      d = PromoEngine.new(store).preview([{ product_id: product.id, quantity: 6, uom: "pc" }])[:discount_total].to_f
+      d = PromoEngine.new(store).preview([{ product_id: product.id, quantity: 6, uom: "pc" }])[:promo_savings].to_f
       expect(d).to be > 0
     end
 
@@ -62,9 +63,10 @@ RSpec.describe PromoEngine do
                             config: { "basis" => "amount", "tiers" => [{ "min" => 1200, "amount" => 100 }, { "min" => 3000, "amount" => 300 }] })
       eng = PromoEngine.new(store) # no qualifying lines → whole order
 
-      expect(eng.preview([{ product_id: product.id, quantity: 10, uom: "case" }])[:discount_total].to_f).to eq(0.0)   # ₱1000 < 1200
-      expect(eng.preview([{ product_id: product.id, quantity: 20, uom: "case" }])[:discount_total].to_f).to eq(100.0) # ₱2000
-      expect(eng.preview([{ product_id: product.id, quantity: 35, uom: "case" }])[:discount_total].to_f).to eq(300.0) # ₱3500
+      # Thresholds compare the EX-VAT basket: ₱1000/1.12=₱893 < 1200; ₱2000/1.12=₱1786 ≥ 1200; ₱3500/1.12=₱3125 ≥ 3000.
+      expect(eng.preview([{ product_id: product.id, quantity: 10, uom: "case" }])[:promo_savings].to_f).to eq(0.0)   # ex-VAT ₱893 < 1200
+      expect(eng.preview([{ product_id: product.id, quantity: 20, uom: "case" }])[:promo_savings].to_f).to eq(100.0) # ex-VAT ₱1786
+      expect(eng.preview([{ product_id: product.id, quantity: 35, uom: "case" }])[:promo_savings].to_f).to eq(300.0) # ex-VAT ₱3125
     end
   end
 end

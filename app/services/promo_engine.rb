@@ -19,13 +19,20 @@ class PromoEngine
   end
 
   # inputs: [{ product_id, quantity, uom }] (sale lines only; rewards are derived)
+  #
+  # Catalog prices are VAT-INCLUSIVE, but the store's exclusive discount and all
+  # promos are EX-VAT. So the whole discount computation runs on ex-VAT amounts,
+  # then VAT is added back on the net: a proper sales-invoice breakdown.
   def preview(inputs)
-    sale = build_sale_lines(inputs)
-    by_product = sale.group_by(&:product_id)
+    vat = vat_rate
+    incl = 1 + vat
+    sale = build_sale_lines(inputs)                 # VAT-inclusive (catalog display)
+    ex_sale = sale.map { |l| ex_line(l, incl) }     # ex-VAT copies, for the discount math
+    by_product = ex_sale.group_by(&:product_id)
 
     earned = []
     nudges = []
-    discount_total = 0.to_d
+    promo_total = 0.to_d # ex-VAT
     # Per-promo savings so the app can list WHICH promos applied and for how much.
     savings_by_promo = Hash.new { |h, k| h[k] = { promo_id: k, name: nil, kind: nil, savings: 0.to_d } }
 
@@ -37,30 +44,40 @@ class PromoEngine
         nudges.concat(n)
       when 'discount_percent', 'discount_amount'
         d = apply_discount(promo, by_product)
-        discount_total += d
+        promo_total += d
         record_saving(savings_by_promo, promo, d)
       when 'tiered_discount'
-        d, n = apply_tiered(promo, sale)
-        discount_total += d
+        d, n = apply_tiered(promo, ex_sale)
+        promo_total += d
         nudges.concat(n)
         record_saving(savings_by_promo, promo, d)
       when 'bundle_price'
         d = apply_bundle(promo, by_product)
-        discount_total += d
+        promo_total += d
         record_saving(savings_by_promo, promo, d)
       end
     end
 
-    # Free-good savings = value of the free pieces, credited to their promo.
+    # Free-good savings = ex-VAT value of the free pieces, credited to their promo.
+    free_goods_value = 0.to_d
     earned.each do |l|
+      val = (l.quantity * (list_price(l.product_id) || 0)).to_d
+      free_goods_value += val
       entry = savings_by_promo[l.promo_id]
       entry[:name] ||= l.promo_name
       entry[:kind] = 'free_goods'
-      entry[:savings] += (l.quantity * (list_price(l.product_id) || 0)).to_d
+      entry[:savings] += val
     end
 
-    subtotal = sale.sum { |l| l.line_total }
-    total = (subtotal - discount_total).round(2)
+    subtotal_incl = sale.sum(&:line_total)                # VAT-inclusive gross (Σ line totals)
+    amount_ex     = (subtotal_incl / incl)                # basket ex of VAT
+    promo_ex      = promo_total + free_goods_value
+    store_rate    = @store.discount_rate.to_d
+    store_disc    = (amount_ex * store_rate)              # store's exclusive discount (ex-VAT)
+    vatable       = [amount_ex - promo_ex - store_disc, 0.to_d].max
+    vat_amt       = vatable * vat
+    total         = vatable + vat_amt
+
     promo_breakdown = savings_by_promo.values
                                       .select { |e| e[:savings].positive? }
                                       .map { |e| { promo_id: e[:promo_id], name: e[:name], kind: e[:kind], savings: e[:savings].round(2).to_f } }
@@ -68,15 +85,39 @@ class PromoEngine
       lines: sale.map { |l| line_json(l) },
       earned_lines: earned.map { |l| line_json(l) },
       nudges: nudges,
-      subtotal: subtotal.round(2),
-      discount_total: discount_total.round(2),
-      promo_savings: (discount_total + earned.sum { |l| l.quantity * (list_price(l.product_id) || 0) }).round(2),
-      promo_breakdown: promo_breakdown,
-      total: total,
+      subtotal: subtotal_incl.round(2),        # VAT-inclusive gross
+      amount_ex_vat: amount_ex.round(2),       # basket ex of VAT
+      store_discount_rate: store_rate.to_f,
+      store_discount: store_disc.round(2),     # ex-VAT
+      promo_savings: promo_ex.round(2),        # ex-VAT
+      promo_breakdown: promo_breakdown,        # ex-VAT, per promo
+      vatable_sales: vatable.round(2),         # ex-VAT net after all discounts
+      vat_rate: vat.to_f,
+      vat: vat_amt.round(2),
+      total: total.round(2),                   # VAT-inclusive amount due
     }
   end
 
   private
+
+  # VAT rate the catalog prices already include (0.12 = 12%). Configurable so a
+  # different jurisdiction/rate is a settings change, not a deploy.
+  def vat_rate
+    @vat_rate ||= SystemSetting.get("vat_rate", "0.12").to_d
+  end
+
+  # Strip VAT from a VAT-inclusive amount.
+  def ex(amount)
+    amount.to_d / (1 + vat_rate)
+  end
+
+  # An ex-VAT copy of a (VAT-inclusive) sale line, for the discount/promo math.
+  def ex_line(line, incl)
+    Line.new(product_id: line.product_id, sku: line.sku, description: line.description,
+             quantity: line.quantity, uom: line.uom,
+             unit_price: (line.unit_price / incl), line_total: (line.line_total / incl),
+             line_type: line.line_type)
+  end
 
   # Credit a discount-type promo's savings into the per-promo breakdown.
   def record_saving(acc, promo, amount)
@@ -177,8 +218,9 @@ class PromoEngine
       bundles = (have / min).floor
       next if bundles <= 0
 
-      unit_pc = @resolver.price_for(@store.store_category, prod, uom: :pc) || @resolver.cost_for(prod, 'pc') || 0
-      saving = (unit_pc.to_d * min) - q.fixed_price.to_d
+      # ex-VAT unit price vs the (ex-VAT) fixed bundle price.
+      unit_pc = ex(@resolver.price_for(@store.store_category, prod, uom: :pc) || @resolver.cost_for(prod, 'pc') || 0)
+      saving = (unit_pc * min) - q.fixed_price.to_d
       total += (saving * bundles).round(2) if saving.positive?
     end
     total
@@ -278,9 +320,12 @@ class PromoEngine
     Array(lines).sum { |l| l.uom.to_s == 'pc' ? l.quantity : l.quantity * per }
   end
 
+  # ex-VAT case price, used to value free goods in the savings breakdown.
   def list_price(product_id)
     p = Product.find_by(id: product_id)
-    p && (@resolver.price_for(@store.store_category, p, uom: 'case') || @resolver.cost_for(p, 'case'))
+    return nil unless p
+
+    ex(@resolver.price_for(@store.store_category, p, uom: 'case') || @resolver.cost_for(p, 'case') || 0)
   end
 
   def line_json(l)

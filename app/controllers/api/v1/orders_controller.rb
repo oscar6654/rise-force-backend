@@ -40,6 +40,7 @@ module Api
           )
           Array(params[:lines]).each { |line| build_line(order, store, resolver, line) }
           order.recompute_total!
+          apply_invoice_totals(order, store)
           link_visit(order)
         end
         render json: { data: order_json(order), meta: meta }, status: :created
@@ -82,6 +83,20 @@ module Api
           return "#{promo.name} can only be availed #{promo.per_store_limit}× per store for this promo period."
         end
         nil
+      end
+
+      # Recompute the store's exclusive discount + promos EX-VAT, then VAT, and
+      # store the invoice breakdown on the order so total_amount is the real
+      # amount due (matches the app's order summary and what vcsi_rise invoices).
+      def apply_invoice_totals(order, store)
+        inputs = order.order_lines.where(line_type: :sale)
+                      .map { |l| { product_id: l.product_id, quantity: l.quantity, uom: l.uom } }
+        b = PromoEngine.new(store).preview(inputs)
+        order.update!(
+          total_amount: b[:total],
+          promo_summary: b.slice(:subtotal, :amount_ex_vat, :store_discount_rate, :store_discount,
+                                 :promo_savings, :promo_breakdown, :vatable_sales, :vat_rate, :vat, :total)
+        )
       end
 
       def build_line(order, store, resolver, line)

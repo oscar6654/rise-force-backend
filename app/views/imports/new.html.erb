@@ -11,7 +11,7 @@
     <% elsif @kind == "promos" %>
       code, name, mechanic, basis, it_barcode, tiers, min_qty, reward_qty, reward_barcode, channel_code, category, branch_code, start_date, end_date, per_store_limit, status
     <% else %>
-      store_code, name, owner_name, address, contact_number, latitude, longitude, branch_code, channel_code, category, seller_code, route_code, route_name, vcsi_customer_ref, segment, chain, sub_chain, distribution_type, tin, visit_frequency, week_pattern, visit_day, visit_sequence
+      store_code, name, owner_name, address, contact_number, latitude, longitude, branch_code, channel_code, category, discount, seller_code, route_code, route_name, vcsi_customer_ref, segment, chain, sub_chain, distribution_type, tin, visit_frequency, week_pattern, visit_day, visit_sequence
     <% end %>
   </div>
   <% if @kind == "stores" %>
@@ -23,6 +23,7 @@
       <li><code>visit_day</code>: <code>mon</code>, <code>tue</code>, <code>wed</code>, <code>thu</code>, <code>fri</code>, <code>sat</code> (no Sunday).</li>
       <li><code>visit_sequence</code>: the stop order on that day (1, 2, 3 …).</li>
       <li><code>category</code>: <code>platinum</code> / <code>gold</code> / <code>silver</code> / <code>bronze</code> (A/B/C/D — sets price list).</li>
+      <li><code>discount</code>: the store's exclusive discount as a <strong>percentage</strong> — <code>2.5</code> = 2.5%. Applied <strong>ex-VAT</strong> at order time (catalog prices are VAT-inclusive). Blank/0 = none.</li>
     </ul>
   <% elsif @kind == "product_channels" %>
     <p class="text-xs text-slate-500 mb-4"><strong>item_key</strong> must exist in the product master and <strong>channel_code</strong> in the channel master — rows referencing unknown keys are rejected. Each row adds a SKU to that channel's list (idempotent). Once a channel has a list, the app shows <em>only</em> those SKUs for stores on that channel; a channel with no list yet shows all SKUs. Set <code>available</code> to <code>false</code> to remove a SKU from a channel.</p>

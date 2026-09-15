@@ -159,14 +159,14 @@ class ImportsController < ApplicationController
     chan = Channel.order(:code).first&.code || "SARI"
     seller = Seller.order(:seller_code).first&.seller_code || "SLR-001"
     headers = %w[store_code name owner_name address contact_number latitude longitude branch_code channel_code
-                 category seller_code route_code route_name vcsi_customer_ref segment chain sub_chain
+                 category discount seller_code route_code route_name vcsi_customer_ref segment chain sub_chain
                  distribution_type tin visit_frequency week_pattern visit_day visit_sequence notes]
     rows = [
       { store_code: "ST-0001", name: "Aling Nena Store", owner_name: "Nena Cruz", address: "123 Rizal St, QC",
         contact_number: "09171234567", latitude: "14.6760", longitude: "121.0437", branch_code: branch, channel_code: chan,
-        category: "silver", seller_code: seller, route_code: "R-QC-01", route_name: "QC North", vcsi_customer_ref: "",
+        category: "silver", discount: "2.5", seller_code: seller, route_code: "R-QC-01", route_name: "QC North", vcsi_customer_ref: "",
         visit_frequency: "f4", week_pattern: "every_week", visit_day: "mon", visit_sequence: "1",
-        notes: "Weekly (F4) every Monday, 1st stop. Seller+route put it on the call list." },
+        notes: "Weekly (F4) every Monday, 1st stop. discount 2.5 = 2.5% exclusive discount (ex-VAT)." },
       { store_code: "ST-0002", name: "7-Eleven Kamias", owner_name: "", address: "88 Kamias Rd, QC",
         contact_number: "", latitude: "14.6330", longitude: "121.0490", branch_code: branch, channel_code: chan,
         category: "gold", seller_code: seller, route_code: "R-QC-01", route_name: "QC North", vcsi_customer_ref: "",

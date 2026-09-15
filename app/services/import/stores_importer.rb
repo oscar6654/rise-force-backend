@@ -44,6 +44,7 @@ module Import
       set(store, :latitude, row["latitude"])
       set(store, :longitude, row["longitude"])
       set(store, :category_code, row["category"]) # resolves/creates StoreCategory
+      set_discount(store, row["discount"]) # exclusive per-customer discount (ex-VAT %)
       set(store, :vcsi_customer_ref, row["vcsi_customer_ref"]) # vcsi_rise customer_id link
       IDENTITY_ATTRS.each { |attr| set(store, attr, row[attr]) }
       # These three are lowercase enums (f2/f4, every_week…, mon…sat) — accept
@@ -94,6 +95,14 @@ module Import
     # Same as #set but case-insensitive, for the lowercase enum columns.
     def set_enum(store, attr, value)
       store.public_send("#{attr}=", value.to_s.strip.downcase) if value.present?
+    end
+
+    # Exclusive per-customer discount, entered as a PERCENTAGE (2.5 = 2.5%),
+    # stored as a rate (0.025). Applied ex-VAT at order time. Blank = unchanged.
+    def set_discount(store, value)
+      return if value.to_s.strip.blank?
+
+      store.discount_rate = (value.to_s.strip.delete("%").to_d / 100).round(4)
     end
 
     def assign_branch(store, row)
