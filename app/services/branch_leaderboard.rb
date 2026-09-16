@@ -4,10 +4,13 @@
 class BranchLeaderboard
   METRICS = %w[target_pct productive_call_pct assortment incentive].freeze
 
-  def initialize(seller, month: Date.current.beginning_of_month)
+  # `branch`: nil/"" = the seller's own branch (default), "all" = every branch
+  # (total), or a specific branch id.
+  def initialize(seller, month: Date.current.beginning_of_month, branch: nil)
     @seller = seller
     @month = month
-    @sellers = Seller.active.where(branch_id: seller.branch_id).to_a
+    @branch = branch.to_s
+    @sellers = seller_scope.to_a
   end
 
   # `assortment_type` (a type code) narrows the assortment metric to one type;
@@ -18,10 +21,22 @@ class BranchLeaderboard
     rows.sort_by! { |r| -r[:value] }
     rows.each_with_index { |r, i| r[:rank] = i + 1; r[:me] = (r[:seller_id] == @seller.id) }
     { metric: metric, assortment_type: assortment_type, rows: rows,
-      me_rank: rows.find { |r| r[:me] }&.dig(:rank), of: rows.size }
+      me_rank: rows.find { |r| r[:me] }&.dig(:rank), of: rows.size,
+      # Branch context so the app can render the branch filter chips.
+      branch: @branch.presence || "mine", my_branch_id: @seller.branch_id,
+      branches: Branch.active.order(:name).pluck(:id, :name).map { |id, name| { id: id, name: name } } }
   end
 
   private
+
+  def seller_scope
+    scope = Seller.active
+    case @branch
+    when "", nil     then scope.where(branch_id: @seller.branch_id) # default: own branch
+    when "all", "total" then scope                                  # every branch
+    else scope.where(branch_id: @branch.to_i)                       # a specific branch
+    end
+  end
 
   def value_for(seller, metric, assortment_type = nil)
     case metric

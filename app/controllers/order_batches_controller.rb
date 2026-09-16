@@ -63,11 +63,14 @@ class OrderBatchesController < ApplicationController
 
   def batch_csv(batch)
     CSV.generate do |csv|
-      csv << %w[order_number store_code sku vcsi_product_ref qty uom unit_price line_total]
+      csv << %w[order_number store_code it_barcode cs_barcode qty_cases qty_pieces unit_price line_total]
       batch.orders.includes(:store, order_lines: :product).find_each do |order|
         order.order_lines.each do |line|
-          csv << [order.order_number, order.store.code, line.product.sku, line.vcsi_product_ref,
-                  line.quantity, line.uom, line.unit_price, line.line_total]
+          # Quantity as ordered: the uom's column carries the qty, the other is 0.
+          qty_cases  = line.uom_case_uom? ? line.quantity : 0
+          qty_pieces = line.uom_pc? ? line.quantity : 0
+          csv << [order.order_number, order.store.code, line.product.it_barcode, line.product.cs_barcode,
+                  qty_cases, qty_pieces, line.unit_price, line.line_total]
         end
       end
     end

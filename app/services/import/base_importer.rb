@@ -9,10 +9,24 @@ module Import
     # #call returns the JobLog for the run. Pass an existing `log:` to run
     # against a JobLog already created by the controller (background-job path).
     def initialize(io_or_string, user:, filename: nil, log: nil)
-      @data = io_or_string.respond_to?(:read) ? io_or_string.read : io_or_string.to_s
+      raw = io_or_string.respond_to?(:read) ? io_or_string.read : io_or_string.to_s
+      @data = normalize_encoding(raw)
       @user = user
       @filename = filename
       @log = log
+    end
+
+    # Excel exports are often Windows-1252 (or UTF-8 with stray non-breaking
+    # spaces / a BOM), which crash CSV parsing as "\xA0 from ASCII-8BIT to
+    # UTF-8". Coerce to clean UTF-8: transcode from Windows-1252 when it isn't
+    # valid UTF-8, strip a leading BOM, and turn non-breaking spaces into normal
+    # spaces so they don't break value/code matching.
+    def normalize_encoding(str)
+      s = str.to_s.dup.b                                                     # work in raw bytes
+      s = s.byteslice(3..-1).to_s if s.byteslice(0, 3) == "\xEF\xBB\xBF".b   # strip a UTF-8 BOM first
+      s.force_encoding("UTF-8")
+      s = s.force_encoding("Windows-1252").encode("UTF-8", invalid: :replace, undef: :replace) unless s.valid_encoding?
+      s.gsub("\u00A0", " ") # non-breaking spaces -> normal space
     end
 
     def call

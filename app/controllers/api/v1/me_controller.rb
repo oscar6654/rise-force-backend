@@ -114,7 +114,7 @@ module Api
       # GET /api/v1/me/leaderboard?metric=target_pct|productive_call_pct|assortment|incentive
       #   &assortment_type=<code>  (optional; scopes the assortment metric to one type)
       def leaderboard
-        ranking = BranchLeaderboard.new(current_seller)
+        ranking = BranchLeaderboard.new(current_seller, branch: params[:branch].presence)
                                    .ranking(params[:metric].to_s, assortment_type: params[:assortment_type].presence)
         render json: { data: ranking, meta: meta }
       end
