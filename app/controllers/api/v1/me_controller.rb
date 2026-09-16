@@ -59,6 +59,20 @@ module Api
         # route-days. Productive call = a visit that closed with an order today.
         productive_today = Visit.where(seller: seller, visit_date: today, status: :closed_with_order).distinct.count(:store_id)
         orders_today = Order.where(seller: seller, ordered_at: today.all_day).where.not(status: :cancelled).distinct.count(:store_id)
+
+        # Route productivity = PLANNED stores that got an order today (visit closed
+        # with an order, or an SFA order placed) / total planned stores today.
+        # So visiting 1 of 8 and ordering at 1 reads 1/8 = 13%, not 100%.
+        if planned_ids.any?
+          ordered_planned = Order.where(seller: seller, store_id: planned_ids, ordered_at: today.all_day)
+                                 .where.not(status: :cancelled).distinct.pluck(:store_id).to_set
+          cwo_planned = Visit.where(seller: seller, store_id: planned_ids, visit_date: today, status: :closed_with_order)
+                             .distinct.pluck(:store_id).to_set
+          route_productive = (ordered_planned | cwo_planned).size
+          route_pc = (route_productive * 100.0 / planned.size).round
+        else
+          route_pc = nil
+        end
         day = SellerDailyStat.record_day!(seller, today,
                                           planned: planned.size, visited: visited_planned,
                                           productive_calls: productive_today, orders_count: orders_today)
@@ -71,7 +85,7 @@ module Api
           coverage_pct: planned.size.positive? ? (visited_planned * 100 / planned.size) : nil,
           pending_sync_orders: 0, # client-side metric; placeholder
           active_stores: active_stores,                                   # buying in vcsi_rise MTD
-          productive_call_pct: seller.productive_call_pct(today..today),  # TODAY's route: calls closed with an order
+          productive_call_pct: route_pc,                                  # planned stores ordered / planned stores today
           must_carry_pct: must.positive? ? (carried * 100 / must) : nil,  # distribution width on the route
           must_carry_carried: carried, must_carry_total: must,
           last_month_amount: last_m,                                      # for the "beat last month" nudge
