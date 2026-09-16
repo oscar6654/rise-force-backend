@@ -100,14 +100,13 @@ class Seller < ApplicationRecord
   end
   alias_method :confirmed_actual, :actual_for
 
-  # "To invoice": orders placed this month not yet invoiced = total ordered −
-  # confirmed (invoiced) actual, clamped at 0. Reconciles by amount, so a fresh
-  # order stays visible until it's actually invoiced (doesn't drop after a sync).
+  # "To invoice": value of SFA presell orders taken this month, pending OSB
+  # invoicing. A distinct pipeline from vcsi_rise confirmed sellout (mostly
+  # non-SFA, can be negative), so NOT reconciled against it. Excludes cancelled.
   def pending_presell(month = Date.current.beginning_of_month)
-    ordered = orders.where.not(status: :cancelled)
-                    .where(ordered_at: month.beginning_of_day..month.end_of_month.end_of_day)
-                    .sum(:total_amount)
-    [ordered - confirmed_actual(month), 0].max
+    orders.where.not(status: :cancelled)
+          .where(ordered_at: month.beginning_of_day..month.end_of_month.end_of_day)
+          .sum(:total_amount)
   end
 
   # Reconciling actual shown vs target: confirmed + fresh presell.

@@ -154,16 +154,14 @@ module Api
         confirmed = grain.group(:store_id).sum(:amount)
         last_sync = grain.group(:store_id).maximum(:synced_at)
 
-        # "To invoice" per store = orders placed this month − confirmed (invoiced)
-        # actual, clamped at 0. Reconciles by amount (not sync time), so a fresh
-        # order stays visible until vcsi_rise invoices it (was dropping to 0 the
-        # moment a sync ran). Clamp applied below once we have confirmed per store.
-        ordered = Hash.new(0.to_d)
+        # "To invoice" per store = value of SFA presell orders taken this month,
+        # pending OSB invoicing. A distinct pipeline from vcsi_rise confirmed
+        # sellout (mostly non-SFA DMS sales, can be negative from credit notes), so
+        # NOT reconciled against confirmed — just what the store ordered.
+        presell = Hash.new(0.to_d)
         Order.where(store_id: store_ids).where.not(status: :cancelled)
              .where(ordered_at: month.beginning_of_day..month.end_of_month.end_of_day)
-             .group(:store_id).sum(:total_amount).each { |sid, amt| ordered[sid] = amt.to_d }
-        presell = Hash.new(0.to_d)
-        store_ids.each { |sid| presell[sid] = [ordered[sid] - (confirmed[sid] || 0.to_d), 0.to_d].max }
+             .group(:store_id).sum(:total_amount).each { |sid, amt| presell[sid] = amt.to_d }
 
         since = updated_since
         rows = store_ids.filter_map do |sid|

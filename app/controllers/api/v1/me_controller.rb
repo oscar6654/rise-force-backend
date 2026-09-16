@@ -6,13 +6,12 @@ module Api
         month = Date.current.beginning_of_month
         target = SellerTarget.find_by(seller: current_seller, period_type: :mtd, period_date: month)&.target_amount || 0
         actual = SelloutSnapshot.mtd_actual_for(current_seller, month: month)
-        # "To invoice" = orders placed this month not yet invoiced = ordered −
-        # confirmed actual, clamped at 0. Reconciles by amount (not sync time), so
-        # a fresh order stays visible until vcsi_rise actually invoices it.
-        ordered = Order.where(seller: current_seller).where.not(status: :cancelled)
+        # "To invoice" = value of SFA presell orders taken this month, pending OSB
+        # invoicing. Distinct from vcsi_rise confirmed sellout (mostly non-SFA, can
+        # be negative), so NOT reconciled against it — just what the seller ordered.
+        presell = Order.where(seller: current_seller).where.not(status: :cancelled)
                        .where(ordered_at: month.beginning_of_day..month.end_of_month.end_of_day)
                        .sum(:total_amount)
-        presell = [ordered - actual, 0].max
         render json: { data: {
           period: month, target_amount: target, actual_amount: actual, presell_amount: presell,
           attainment_pct: (target.positive? ? (actual / target * 100).round : nil),
