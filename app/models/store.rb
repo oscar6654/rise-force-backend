@@ -59,16 +59,15 @@ class Store < ApplicationRecord
     SelloutSnapshot.store_mtd_actual_for(self, month: month)
   end
 
-  # Presell orders booked SINCE the last sellout sync — not yet reflected in
-  # the confirmed figure. Optimistic (assumes fulfilment); excludes cancelled.
-  # ordered_at vs the sync time is an approximation that self-corrects on the
-  # next sync, which is exactly the "encouragement then reconcile" behaviour.
+  # "To invoice": orders placed this month that vcsi_rise hasn't invoiced yet =
+  # total ordered − confirmed (invoiced) actual, clamped at 0. This reconciles by
+  # AMOUNT rather than by sync time, so a just-placed order stays visible until
+  # it's actually invoiced (it doesn't vanish the moment a sync runs).
   def pending_presell(month = Date.current.beginning_of_month)
-    cutoff = SelloutSnapshot.store_last_synced_at(self, month: month)
-    scope = orders.where.not(status: :cancelled)
-                  .where(ordered_at: month.beginning_of_day..month.end_of_month.end_of_day)
-    scope = scope.where("orders.ordered_at > ?", cutoff) if cutoff
-    scope.sum(:total_amount)
+    ordered = orders.where.not(status: :cancelled)
+                    .where(ordered_at: month.beginning_of_day..month.end_of_month.end_of_day)
+                    .sum(:total_amount)
+    [ordered - confirmed_actual(month), 0].max
   end
 
   # The reconciling actual shown against target: confirmed truth + fresh presell

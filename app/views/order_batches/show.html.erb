@@ -1,10 +1,15 @@
 <% content_for :page_title, @batch.batch_number %>
 <% content_for :page_actions do %>
-  <% if can?(:order_batch, :download) && !@batch.downloaded? && !@batch.invoiced? %>
-    <%= link_to "⭳ Download & lock", download_order_batch_path(@batch),
-          class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
-  <% elsif @batch.downloaded? || @batch.invoiced? %>
-    <span class="text-xs text-slate-500">Downloaded <%= @batch.downloaded_at&.strftime("%d %b %H:%M") %> by <%= @batch.downloaded_by&.full_name %></span>
+  <% if can?(:order_batch, :download) && !@batch.invoiced? %>
+    <div class="flex items-center gap-3">
+      <% if @batch.downloaded? %>
+        <span class="text-xs text-slate-500">Last downloaded <%= @batch.downloaded_at&.strftime("%d %b %H:%M") %> by <%= @batch.downloaded_by&.full_name %></span>
+      <% end %>
+      <%= link_to (@batch.downloaded? ? "⭳ Download again" : "⭳ Download"), download_order_batch_path(@batch),
+            class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
+    </div>
+  <% elsif @batch.invoiced? %>
+    <span class="text-xs text-slate-500">Invoiced — locked. Downloaded <%= @batch.downloaded_at&.strftime("%d %b %H:%M") %> by <%= @batch.downloaded_by&.full_name %></span>
   <% end %>
 <% end %>
 

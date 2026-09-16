@@ -100,14 +100,14 @@ class Seller < ApplicationRecord
   end
   alias_method :confirmed_actual, :actual_for
 
-  # Presell orders booked SINCE the last sellout sync (last_sync_at) — the
-  # optimistic top-up that reconciles to invoiced truth on the next sync.
-  # Excludes cancelled orders.
+  # "To invoice": orders placed this month not yet invoiced = total ordered −
+  # confirmed (invoiced) actual, clamped at 0. Reconciles by amount, so a fresh
+  # order stays visible until it's actually invoiced (doesn't drop after a sync).
   def pending_presell(month = Date.current.beginning_of_month)
-    scope = orders.where.not(status: :cancelled)
-                  .where(ordered_at: month.beginning_of_day..month.end_of_month.end_of_day)
-    scope = scope.where("orders.ordered_at > ?", last_sync_at) if last_sync_at
-    scope.sum(:total_amount)
+    ordered = orders.where.not(status: :cancelled)
+                    .where(ordered_at: month.beginning_of_day..month.end_of_month.end_of_day)
+                    .sum(:total_amount)
+    [ordered - confirmed_actual(month), 0].max
   end
 
   # Reconciling actual shown vs target: confirmed + fresh presell.

@@ -114,14 +114,26 @@ module Api
         )
       end
 
+      # Link the order to the visit it was taken on. The app knows the visit by
+      # its client_uuid (it never has the server id), so match on that first; keep
+      # visit_id as a fallback. We only set the association — the visit's status is
+      # set at checkout (or by housekeeping), so a still-in-progress visit isn't
+      # prematurely closed. If checkout already mis-marked it no-order (order not
+      # yet synced), correct it to with-order now.
       def link_visit(order)
-        return if params[:visit_id].blank?
-
-        visit = Visit.find_by(id: params[:visit_id], seller: current_seller)
+        visit = order_visit
         return unless visit
 
         order.update!(visit: visit, route: visit.route || order.route)
-        visit.update(status: :closed_with_order)
+        visit.update!(status: :closed_with_order, no_order_reason: nil) if visit.closed_no_order?
+      end
+
+      def order_visit
+        if params[:visit_client_uuid].present?
+          Visit.find_by(client_uuid: params[:visit_client_uuid], seller: current_seller)
+        elsif params[:visit_id].present?
+          Visit.find_by(id: params[:visit_id], seller: current_seller)
+        end
       end
 
       def order_json(order)

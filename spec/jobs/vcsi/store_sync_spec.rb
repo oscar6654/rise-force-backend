@@ -42,29 +42,30 @@ RSpec.describe "vcsi_rise store sync + reconciling actual" do
   end
 
   describe "reconciling actual (presell -> invoiced truth)" do
-    it "shows optimistic presell, then settles to vcsi_rise actual on sync, then rides fresh presell on top" do
-      # Presell booked before any sync -> fully optimistic.
+    it "reconciles by amount: to-invoice = ordered minus invoiced, dropping only as vcsi_rise confirms" do
+      # Presell booked before any sync -> nothing invoiced yet, all pending.
       create(:order, store: store, seller: seller, branch: branch,
                      ordered_at: 2.days.ago, total_amount: 25_000, status: :submitted)
       expect(store.confirmed_actual(month)).to eq(0)
       expect(store.pending_presell(month)).to eq(25_000)
       expect(store.blended_actual(month)).to eq(25_000)
 
-      # Sellout sync brings invoiced truth (40k); the pre-sync presell settles.
+      # vcsi_rise invoices 20k of it; to-invoice drops by exactly that (not to 0
+      # just because a sync ran) — 5k of the order is still uninvoiced.
       stub_client(sellout: [
-        { "customer_id" => "CUST-1", "sellout" => "40000.0", "transactions" => 3 }
+        { "customer_id" => "CUST-1", "sellout" => "20000.0", "transactions" => 2 }
       ])
       Vcsi::StoreSelloutSyncJob.perform_now
 
-      expect(store.confirmed_actual(month)).to eq(40_000)
-      expect(store.pending_presell(month)).to eq(0)   # ordered before the sync -> absorbed
-      expect(store.blended_actual(month)).to eq(40_000)
+      expect(store.confirmed_actual(month)).to eq(20_000)
+      expect(store.pending_presell(month)).to eq(5_000)    # 25k ordered - 20k invoiced
+      expect(store.blended_actual(month)).to eq(25_000)    # still the expected 25k
 
-      # Fresh presell after the sync rides optimistically on top of confirmed.
+      # A fresh order rides on top; still measured against invoiced truth.
       create(:order, store: store, seller: seller, branch: branch,
                      ordered_at: 1.minute.from_now, total_amount: 15_000, status: :submitted)
-      expect(store.pending_presell(month)).to eq(15_000)
-      expect(store.blended_actual(month)).to eq(55_000)
+      expect(store.pending_presell(month)).to eq(20_000)   # 40k ordered - 20k invoiced
+      expect(store.blended_actual(month)).to eq(40_000)
     end
 
     it "excludes cancelled orders from presell" do

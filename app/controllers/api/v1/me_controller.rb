@@ -6,14 +6,13 @@ module Api
         month = Date.current.beginning_of_month
         target = SellerTarget.find_by(seller: current_seller, period_type: :mtd, period_date: month)&.target_amount || 0
         actual = SelloutSnapshot.mtd_actual_for(current_seller, month: month)
-        # "To invoice" reconciles like the store view: only presell placed SINCE
-        # the last vcsi sync (older orders are assumed confirmed, so they leave
-        # this figure and show up in `actual` instead — never double-counted).
-        cutoff = SelloutSnapshot.seller_last_synced_at(current_seller, month: month)
-        presell_scope = Order.where(seller: current_seller).where.not(status: :cancelled)
-                             .where(ordered_at: month.beginning_of_day..month.end_of_month.end_of_day)
-        presell_scope = presell_scope.where("orders.ordered_at > ?", cutoff) if cutoff
-        presell = presell_scope.sum(:total_amount)
+        # "To invoice" = orders placed this month not yet invoiced = ordered −
+        # confirmed actual, clamped at 0. Reconciles by amount (not sync time), so
+        # a fresh order stays visible until vcsi_rise actually invoices it.
+        ordered = Order.where(seller: current_seller).where.not(status: :cancelled)
+                       .where(ordered_at: month.beginning_of_day..month.end_of_month.end_of_day)
+                       .sum(:total_amount)
+        presell = [ordered - actual, 0].max
         render json: { data: {
           period: month, target_amount: target, actual_amount: actual, presell_amount: presell,
           attainment_pct: (target.positive? ? (actual / target * 100).round : nil),

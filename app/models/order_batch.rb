@@ -32,15 +32,17 @@ class OrderBatch < ApplicationRecord
     end
   end
 
-  # Mark as downloaded exactly once. Row lock + state guard prevents two OSB
-  # users double-downloading (and thus double-invoicing).
+  # Mark as downloaded and record who/when. Re-download is allowed (a lost or
+  # partial download must be recoverable) — only an INVOICED batch is frozen, so
+  # a batch that's been cut into vcsi_rise can't be re-pulled. Each call refreshes
+  # downloaded_at/by for audit. Row lock keeps concurrent downloads consistent.
   def download!(user)
     self.class.transaction do
       locked = self.class.lock.find(id)         # SELECT ... FOR UPDATE
-      raise AlreadyDownloaded if locked.downloaded? || locked.invoiced?
+      raise AlreadyDownloaded if locked.invoiced?
 
       locked.update!(status: :downloaded, downloaded_at: Time.current, downloaded_by: user)
-      locked.orders.update_all(status: Order.statuses[:downloaded])
+      locked.orders.where.not(status: :invoiced).update_all(status: Order.statuses[:downloaded])
       locked
     end
   end

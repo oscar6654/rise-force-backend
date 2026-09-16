@@ -26,7 +26,7 @@ RSpec.describe OrderBatch do
   end
 
   describe "#download!" do
-    it "marks the batch downloaded once and blocks a second download" do
+    it "marks the batch downloaded, allows re-download, and freezes once invoiced" do
       submitted_order
       batch = described_class.build_for(branch: branch, seller: seller, user: nil)
 
@@ -35,6 +35,11 @@ RSpec.describe OrderBatch do
       expect(batch.downloaded_at).to be_present
       expect(batch.orders.pluck(:status).uniq).to eq(["downloaded"])
 
+      # Re-download is allowed (recover a lost/partial download) and refreshes the stamp.
+      expect { batch.download!(nil) }.not_to raise_error
+
+      # Once invoiced, the batch is frozen — no re-pull.
+      batch.update!(status: :invoiced)
       expect { batch.download!(nil) }.to raise_error(OrderBatch::AlreadyDownloaded)
     end
   end
