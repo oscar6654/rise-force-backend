@@ -87,6 +87,36 @@ class Seller < ApplicationRecord
     total.positive? ? (productive_calls_in(range).to_f / total * 100).round : nil
   end
 
+  # ---- Route productivity, month-running (leaderboard PC%) ------------------
+  # "Stores ordered vs actual route", summed across the whole month so far.
+  # Every SCHEDULED store-day counts (a store due 4x this month = 4 slots); a
+  # slot is productive when that store got an order on that scheduled day. So a
+  # seller who ordered at 1 of 8 stores due today, and nothing else this month,
+  # reads 1/8 — and it accumulates as the month runs, matching the daily tile.
+  def route_productive_call_pct(month = Date.current.beginning_of_month, upto: Date.current)
+    planned = Store.joins(:route).where(routes: { seller_id: id })
+                   .pluck(:id, :visit_day, :week_pattern)
+    return nil if planned.empty?
+
+    order_days = Order.where(seller: self).where.not(status: :cancelled)
+                      .where(ordered_at: month.beginning_of_day..upto.end_of_day)
+                      .pluck(:store_id, :ordered_at)
+                      .map { |sid, at| [sid, at.to_date] }.to_set
+
+    scheduled = 0
+    productive = 0
+    (month..upto).each do |date|
+      wday = date.wday
+      planned.each do |sid, visit_day, week_pattern|
+        next unless due_on_day?(visit_day, week_pattern, date, wday)
+
+        scheduled += 1
+        productive += 1 if order_days.include?([sid, date])
+      end
+    end
+    scheduled.positive? ? (productive * 100.0 / scheduled).round : nil
+  end
+
   # Monthly target: the synced vcsi_rise SellerTarget for the month, falling
   # back to the sales_target column on the seller master.
   def target_for(month = Date.current.beginning_of_month)
@@ -117,5 +147,21 @@ class Seller < ApplicationRecord
   def attainment_pct(month = Date.current.beginning_of_month)
     t = target_for(month)
     t.positive? ? (blended_actual(month) / t * 100).round : nil
+  end
+
+  private
+
+  # Frequency rule check without materializing a Store (mirrors Store#due_on?).
+  # visit_day/week_pattern arrive as the mapped enum strings from pluck.
+  def due_on_day?(visit_day, week_pattern, date, wday)
+    return false if visit_day.nil?
+    return false unless Store.visit_days[visit_day] == wday
+
+    case week_pattern
+    when "every_week" then true
+    when "weeks_1_3"  then ((date.day - 1) / 7).even? # weeks 1,3 => index 0,2
+    when "weeks_2_4"  then ((date.day - 1) / 7).odd?
+    else false
+    end
   end
 end

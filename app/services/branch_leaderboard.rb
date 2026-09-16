@@ -44,7 +44,9 @@ class BranchLeaderboard
       t = seller.target_for(@month).to_d
       t.positive? ? (seller.confirmed_actual(@month) / t * 100).round : 0
     when 'productive_call_pct'
-      seller.productive_call_pct(@month..Date.current) || 0
+      # Month-running: scheduled route store-days ordered / total scheduled, so
+      # 1 of 8 due today reads 13% and climbs as the month accumulates.
+      seller.route_productive_call_pct(@month) || 0
     when 'incentive'
       IncentiveCalculator.new(seller, month: @month).call[:confirmed_total].to_i
     when 'assortment'
@@ -52,11 +54,23 @@ class BranchLeaderboard
     end
   end
 
-  # Count of the seller's linked stores with full must-stock. `type_code` scopes
-  # to one assortment type; nil = all types merged.
+  # Distribution width POOLED across all the seller's stores: total barcodes
+  # carried / total must-stock barcodes, as a percentage. A single store rarely
+  # hits 100%, so pooling every store gives a fair running figure — e.g. 1/86 at
+  # one store and 0/86 at another reads 1 / 172 ≈ 1%. `type_code` scopes to one
+  # assortment type; nil = all types merged.
   def assortment_score(seller, type_code = nil)
     stores = Store.where(seller: seller).or(Store.where(route_id: Route.where(seller: seller).select(:id)))
                   .where.not(vcsi_customer_ref: [nil, '']).limit(300)
-    stores.count { |s| (c = s.assortment_compliance(type_code: type_code)) && c[:must].positive? && c[:carried] >= c[:must] }
+    must = 0
+    carried = 0
+    stores.each do |s|
+      c = s.assortment_compliance(type_code: type_code)
+      next unless c
+
+      must += c[:must]
+      carried += c[:carried]
+    end
+    must.positive? ? (carried * 100.0 / must).round : 0
   end
 end

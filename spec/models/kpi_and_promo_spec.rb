@@ -46,6 +46,54 @@ RSpec.describe "KPIs, compliance, and promo limits" do
     end
   end
 
+  describe "Seller#route_productive_call_pct (month-running route productivity)" do
+    let(:route) { Route.create!(seller: seller, branch: branch, code: "R-PC", name: "PC Beat") }
+    # Weekday enum for today so the stores are due right now.
+    let(:today_day) { Store.visit_days.key(Date.current.wday) }
+
+    # Single-day window (today..today) keeps the count deterministic regardless
+    # of how many matching weekdays fall in the current month.
+    it "is scheduled route store-days ordered / total scheduled (1 of 8 = 13%)" do
+      8.times do
+        create(:store, branch: branch, route: route,
+                       visit_day: today_day, week_pattern: :every_week)
+      end
+      ordered_store = route.stores.first
+      create(:order, seller: seller, store: ordered_store, branch: branch, ordered_at: Time.current)
+
+      # 1 of 8 stores due today has an order -> 13%.
+      expect(seller.route_productive_call_pct(Date.current)).to eq(13)
+    end
+
+    it "only counts stores actually due today, not the whole route" do
+      due = create(:store, branch: branch, route: route,
+                           visit_day: today_day, week_pattern: :every_week)
+      # Due on a different weekday -> not scheduled today, excluded from the base.
+      other = Store.visit_days.key((Date.current.wday % 6) + 1)
+      create(:store, branch: branch, route: route, visit_day: other, week_pattern: :every_week)
+      create(:order, seller: seller, store: due, branch: branch, ordered_at: Time.current)
+
+      # Only 1 store due today, and it ordered -> 100% (the off-day store is not
+      # in today's denominator).
+      expect(seller.route_productive_call_pct(Date.current)).to eq(100)
+    end
+
+    it "accumulates across the month — repeated scheduled days each count" do
+      due = create(:store, branch: branch, route: route,
+                           visit_day: today_day, week_pattern: :every_week)
+      create(:order, seller: seller, store: due, branch: branch, ordered_at: Time.current)
+      # Over the whole month there are N scheduled Wednesdays (say) but only one
+      # got an order, so the running figure is <= 100 and never nil here.
+      pct = seller.route_productive_call_pct(month)
+      expect(pct).to be_a(Integer)
+      expect(pct).to be_between(0, 100)
+    end
+
+    it "is nil when the seller has no routed stores" do
+      expect(seller.route_productive_call_pct(month)).to be_nil
+    end
+  end
+
   describe "Store#assortment_compliance" do
     it "measures ordered must-stock SKUs against the resolved must-carry list" do
       p1 = create(:product)
