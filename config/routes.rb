@@ -32,7 +32,10 @@ Rails.application.routes.draw do
   resources :product_categories, except: [:show, :destroy]
   resources :product_tiers, except: [:show, :destroy]
   resources :store_categories, except: [:show, :destroy]
-  resources :stores
+  resources :stores do
+    member { get :stock_report; get :stock_history }
+  end
+  get "replenishment" => "replenishment#index", as: :replenishment_index
   resources :channels
   resources :products
   resources :product_channels, only: [:index]
@@ -100,6 +103,8 @@ Rails.application.routes.draw do
       get "stores/:id/suggested_order"   => "stores#suggested_order"
       get "stores/:id/prefill"           => "stores#prefill"
       get "stores/:id/cross_sell"        => "stores#cross_sell"
+      get "stores/:id/recommended"       => "stores#recommended"
+      get "stores/:id/inventory"         => "stores#inventory"
 
       resources :store_registrations, only: [:create, :index]
 

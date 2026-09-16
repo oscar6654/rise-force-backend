@@ -17,7 +17,7 @@ module ApplicationHelper
         NavItem.new(label: "Batch download", path: order_batches_path, icon: "⭳", resource: :order_batch),
         NavItem.new(label: "Field visits", path: visits_path, icon: "📍", resource: :visit),
         NavItem.new(label: "Assortment compliance", path: compliance_index_path, icon: "☑", resource: :store),
-        NavItem.new(label: "Stock counts", path: stock_counts_path, icon: "▦", resource: :stock_count),
+        NavItem.new(label: "Stock & replenishment", path: replenishment_index_path, icon: "📦", resource: :stock_count),
         NavItem.new(label: "Competitor & prices", path: competitor_price_checks_path, icon: "⚖", resource: :competitor_check)
       ],
       "Organization" => [
@@ -62,6 +62,23 @@ module ApplicationHelper
     when "notice", "success" then "bg-emerald-50 text-emerald-800 border-emerald-200"
     when "alert", "error"    then "bg-red-50 text-red-800 border-red-200"
     else "bg-slate-50 text-slate-700 border-slate-200"
+    end
+  end
+
+  # A click-to-open ⓘ explainer (pure CSS via <details>, no JS). Inline styles
+  # (not Tailwind classes) so it renders regardless of the CSS purge — the helper
+  # builds markup in Ruby, which the Tailwind content scanner doesn't see.
+  def info_tip(text, align: "left")
+    box = [
+      "position:absolute", "top:100%", (align == "right" ? "right:0" : "left:0"),
+      "margin-top:6px", "width:260px", "max-width:78vw",
+      "background:#1e293b", "color:#fff", "font-size:12px", "font-weight:400",
+      "line-height:1.5", "padding:10px 12px", "border-radius:10px",
+      "box-shadow:0 12px 32px rgba(15,23,42,.35)", "white-space:normal", "z-index:50"
+    ].join(";")
+    tag.details(style: "display:inline-block;position:relative;vertical-align:middle") do
+      concat tag.summary("ⓘ", style: "display:inline-block;list-style:none;cursor:pointer;color:#94a3b8;font-size:13px;line-height:1")
+      concat tag.div(text, style: box)
     end
   end
 end

@@ -142,6 +142,31 @@ module Api
         render json: { data: SellerIntelligence.new(current_seller).cross_sell(@store), meta: meta }
       end
 
+      # GET /api/v1/stores/:id/inventory
+      # Predicted shelf inventory + ideal case order (ICO) per SKU, from the
+      # store's stock-check history and vcsi confirmed deliveries. Store-scoped
+      # (NOT per-visit), so a count taken Monday drives Wednesday's order.
+      def inventory
+        est = StoreInventoryEstimator.new(@store)
+        rows = est.rows.map(&:to_h)
+        render json: {
+          data: {
+            last_stock_checked_on: est.last_checked_on,
+            next_visit_on: est.next_visit_on,
+            rows: rows,
+          },
+          meta: meta,
+        }
+      end
+
+      # GET /api/v1/stores/:id/recommended
+      # Wide whitespace: SKUs the NEAREST stores (any channel/type) carry that
+      # this store hasn't in the trailing window. Live + bounded to the nearest
+      # peers so it stays light. Powers the order-taking "Recommended" tab.
+      def recommended
+        render json: { data: SellerIntelligence.new(current_seller).nearby_whitespace(@store), meta: meta }
+      end
+
       private
 
       def set_store

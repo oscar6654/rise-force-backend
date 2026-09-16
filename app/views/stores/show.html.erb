@@ -25,7 +25,9 @@
 <%# ---- Actual vs Target (MTD) — the reconciling "presell → invoiced" view ---- %>
 <div class="rounded-xl border border-slate-200 bg-white p-6 mx-auto max-w-2xl mt-5">
   <div class="flex items-baseline justify-between mb-4">
-    <div class="text-sm font-semibold">Actual vs target · <%= @month.strftime("%B %Y") %></div>
+    <div class="text-sm font-semibold">Actual vs target · <%= @month.strftime("%B %Y") %>
+      <%= info_tip "Blended actual = vcsi-confirmed invoiced sellout (net of returns) + presell orders not yet invoiced (\"to invoice\"). Attainment = blended ÷ derived target. To-invoice is a separate pipeline and is NOT subtracted from confirmed." %>
+    </div>
     <div class="text-xs text-slate-500">
       <% if @last_sellout_sync %>synced <%= time_ago_in_words(@last_sellout_sync) %> ago<% else %>not yet synced<% end %>
     </div>
@@ -79,7 +81,9 @@
 <% if @compliance %>
   <div class="rounded-xl border border-slate-200 bg-white p-6 mx-auto max-w-2xl mt-5">
     <div class="flex items-baseline justify-between mb-3">
-      <div class="text-sm font-semibold">Must-carry compliance</div>
+      <div class="text-sm font-semibold">Must-carry compliance
+        <%= info_tip "Counted by unique product barcode. Carried = ordered (SFA) or invoiced (vcsi) in the last 90 days. The must-carry list is resolved from the assortment master by branch / channel / category." %>
+      </div>
       <div class="text-lg font-semibold <%= @compliance[:pct] >= 100 ? 'text-emerald-600' : @compliance[:pct] >= 70 ? 'text-slate-800' : 'text-amber-600' %>">
         <%= @compliance[:carried] %>/<%= @compliance[:must] %> · <%= @compliance[:pct] %>%
       </div>
@@ -100,3 +104,83 @@
     <p class="text-xs text-slate-400 mt-3">Carried = ordered in the last 90 days. Must-carry list resolved from the assortment master (branch / channel / category).</p>
   </div>
 <% end %>
+
+<%# ---- Stock check & replenishment (offtake → predicted inventory → ICO) ---- %>
+<div class="rounded-xl border border-slate-200 bg-white p-6 mx-auto max-w-2xl mt-5">
+  <div class="flex items-baseline justify-between mb-3">
+    <div class="text-sm font-semibold">Stock check &amp; replenishment
+      <%= info_tip "Predicted on hand = last shelf count + estimated vcsi deliveries − offtake × days since the count. Offtake/day is learned between two counts (delivery-adjusted); until a second count lands, a steady-state delivery proxy is used (basis \"delivery\"). Suggested cases (ICO) cover offtake until the next scheduled visit + a safety buffer, minus what's predicted on hand and already ordered." %>
+    </div>
+    <% if can?(:stock_count, :download) && @inventory_rows.any? %>
+      <%= link_to "Download report (CSV)", stock_report_store_path(@store, format: :csv),
+            class: "text-xs font-semibold text-[#1f4b99] hover:underline" %>
+    <% end %>
+  </div>
+  <div class="text-xs text-slate-500 mb-4">
+    Last stock checked:
+    <span class="font-semibold text-slate-700"><%= @last_stock_checked_on ? @last_stock_checked_on.strftime("%b %-d, %Y") : "never" %></span>
+    · Next scheduled visit:
+    <span class="font-semibold text-slate-700"><%= @next_visit_on ? @next_visit_on.strftime("%b %-d") : "—" %></span>
+    · Confirmed sellout (MTD):
+    <span class="font-semibold text-slate-700">₱<%= number_with_delimiter(@confirmed.to_i) %></span>
+  </div>
+
+  <div class="flex items-center justify-between mb-1">
+    <div class="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Count history</div>
+    <% if can?(:stock_count, :download) %>
+      <%= link_to "⭳ Count history CSV", stock_history_store_path(@store, format: :csv, from: @from, to: @to), class: "text-xs font-semibold text-[#1f4b99] hover:underline" %>
+    <% end %>
+  </div>
+  <%= form_with url: store_path(@store), method: :get, local: true, class: "flex flex-wrap items-center gap-2 mb-3" do %>
+    <label class="text-xs text-slate-500">From <%= date_field_tag :from, @from, class: "rounded border border-slate-300 px-2 py-1 text-xs" %></label>
+    <label class="text-xs text-slate-500">To <%= date_field_tag :to, @to, class: "rounded border border-slate-300 px-2 py-1 text-xs" %></label>
+    <%= submit_tag "Filter", class: "rounded border border-slate-300 text-xs px-2 py-1 hover:bg-slate-50 cursor-pointer" %>
+    <% if @from || @to %><%= link_to "Clear", store_path(@store), class: "text-xs text-slate-500 hover:underline" %><% end %>
+  <% end %>
+  <% if @stock_check_dates.any? %>
+    <div class="flex flex-wrap gap-2 mb-4">
+      <% @stock_check_dates.first(24).each do |date, n| %>
+        <span class="rounded bg-slate-50 border border-slate-200 text-slate-600 text-xs px-2 py-1"><%= date.strftime("%b %-d, %Y") %> · <%= n %> SKU<%= "s" unless n == 1 %></span>
+      <% end %>
+    </div>
+  <% else %>
+    <p class="text-xs text-slate-400 mb-4">No counts<%= " in this range" if @from || @to %> yet.</p>
+  <% end %>
+
+  <% if @inventory_rows.any? %>
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="text-left text-slate-500 border-b border-slate-200">
+            <th class="py-1 pr-2">SKU</th>
+            <th class="py-1 pr-2 text-right">Counted</th>
+            <th class="py-1 pr-2 text-right">Delivered (est)</th>
+            <th class="py-1 pr-2 text-right">Offtake/day</th>
+            <th class="py-1 pr-2 text-right">Predicted now</th>
+            <th class="py-1 pr-2 text-right">Suggested</th>
+            <th class="py-1 pl-2">Basis</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @inventory_rows.sort_by { |r| -r.suggested_cases }.first(40).each do |r| %>
+            <tr class="border-b border-slate-100">
+              <td class="py-1 pr-2"><span class="font-mono"><%= r.sku %></span> · <%= truncate(r.description, length: 30) %></td>
+              <td class="py-1 pr-2 text-right"><%= r.on_hand %> <span class="text-slate-400 text-[10px]"><%= r.checked_on&.strftime("%-m/%-d") %></span></td>
+              <td class="py-1 pr-2 text-right text-slate-500"><%= r.delivered_since %></td>
+              <td class="py-1 pr-2 text-right"><%= r.offtake_per_day || "—" %></td>
+              <td class="py-1 pr-2 text-right"><%= r.predicted_on_hand %></td>
+              <td class="py-1 pr-2 text-right font-semibold <%= r.suggested_cases > 0 ? 'text-emerald-700' : 'text-slate-400' %>"><%= r.suggested_cases %> cs <span class="text-slate-400">(<%= r.suggested_pieces %> pc)</span></td>
+              <td class="py-1 pl-2"><span class="rounded px-1.5 py-0.5 <%= r.basis == 'offtake' ? 'bg-emerald-50 text-emerald-700' : r.basis == 'delivery' ? 'bg-sky-50 text-sky-700' : 'bg-slate-100 text-slate-500' %>"><%= r.basis %></span></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <p class="text-xs text-slate-400 mt-3">
+      Predicted inventory = last count + est. deliveries − offtake × days since. ICO covers <%= @inventory_rows.first&.cover_days %> days
+      (to next visit + safety). Offtake learned between counts; “delivery” basis = steady-state proxy until a second count lands.
+    </p>
+  <% else %>
+    <p class="text-sm text-slate-500">No stock checks captured yet. Once a seller/merchandiser counts the shelf, predicted inventory and a suggested case order appear here.</p>
+  <% end %>
+</div>

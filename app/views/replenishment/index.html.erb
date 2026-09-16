@@ -1,0 +1,79 @@
+<% content_for :page_title, "Stock & replenishment" %>
+<% content_for :page_actions do %>
+  <% if can?(:stock_count, :download) %>
+    <%= link_to "⭳ Export CSV", replenishment_index_path(format: :csv, q: params[:q], seller_id: params[:seller_id], branch_id: params[:branch_id], from: params[:from], to: params[:to]),
+          class: "rounded-md border border-slate-300 bg-white text-slate-700 text-sm font-semibold px-3 py-2 hover:bg-slate-50" %>
+  <% end %>
+<% end %>
+
+<div class="rounded-xl border border-slate-200 bg-white p-4 mb-4 text-sm text-slate-600 flex items-start gap-2">
+  <span class="text-lg leading-none">📦</span>
+  <div>
+    End-to-end replenishment from shelf stock checks: we take each store's latest count, add estimated vcsi deliveries,
+    subtract how fast it sells (offtake), and size an ideal case order (ICO) to cover until the next visit.
+    <%= info_tip "Offtake/day is learned between two stock checks (delivery-adjusted). Until a store has a second count, a steady-state delivery proxy is used. Predicted on hand = last count + est. deliveries − offtake × days since. ICO = offtake × cover days − predicted − already-ordered, rounded to cases." %>
+    Click a store to see per-SKU detail and download its report.
+  </div>
+</div>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <%= form_with url: replenishment_index_path, method: :get, local: true, class: "px-4 py-3 border-b border-slate-200 flex flex-wrap items-center gap-2" do %>
+    <%= text_field_tag :q, params[:q], placeholder: "Search store code, name, owner…", class: "flex-1 min-w-[200px] rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    <%= select_tag :seller_id, options_for_select([["All sellers", ""]] + Seller.order(:name).map { |s| [s.name, s.id] }, params[:seller_id]), class: "rounded-md border border-slate-300 px-2 py-2 text-sm", data: { controller: "tom-select" } %>
+    <label class="text-xs text-slate-500 flex items-center gap-1">Counted from <%= date_field_tag :from, @from, class: "rounded border border-slate-300 px-2 py-2 text-sm" %></label>
+    <label class="text-xs text-slate-500 flex items-center gap-1">to <%= date_field_tag :to, @to, class: "rounded border border-slate-300 px-2 py-2 text-sm" %></label>
+    <%= submit_tag "Filter", class: "rounded-md border border-slate-300 text-sm px-3 py-2 hover:bg-slate-50 cursor-pointer" %>
+    <span class="text-xs text-slate-500 ml-auto"><%= @stores.total_count %> stores counted</span>
+  <% end %>
+
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse min-w-[860px]">
+      <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+        <th class="px-4 py-2.5">Store</th>
+        <th class="px-4 py-2.5">Seller</th>
+        <th class="px-4 py-2.5">Last checked</th>
+        <th class="px-4 py-2.5 text-right">SKUs to reorder</th>
+        <th class="px-4 py-2.5 text-right">Suggested cases</th>
+        <th class="px-4 py-2.5 text-right">Offtake-learned</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        <% @stores.each do |s| %>
+          <% sum = @summaries[s.id] %>
+          <tr class="border-b border-slate-100 hover:bg-slate-50">
+            <td class="px-4 py-3">
+              <div class="text-sm font-medium"><%= link_to s.name, store_path(s), class: "text-[#1f4b99] hover:underline" %></div>
+              <div class="text-xs text-slate-500 font-mono"><%= s.code %></div>
+            </td>
+            <td class="px-4 py-3 text-sm text-slate-600 whitespace-nowrap"><%= s.assigned_seller&.name || "—" %></td>
+            <td class="px-4 py-3 text-sm whitespace-nowrap">
+              <span class="<%= s.last_stock_checked_at && s.last_stock_checked_at > 14.days.ago ? 'text-slate-700' : 'text-amber-600 font-semibold' %>">
+                <%= s.last_stock_checked_at&.strftime("%b %-d") %>
+                <span class="text-slate-400 text-xs">(<%= time_ago_in_words(s.last_stock_checked_at) %> ago)</span>
+              </span>
+            </td>
+            <td class="px-4 py-3 text-right text-sm"><%= sum[:to_reorder] %> <span class="text-slate-400">/ <%= sum[:skus] %></span></td>
+            <td class="px-4 py-3 text-right text-sm font-semibold <%= sum[:cases].positive? ? 'text-emerald-700' : 'text-slate-400' %>"><%= sum[:cases] %></td>
+            <td class="px-4 py-3 text-right text-xs">
+              <% if sum[:offtake_learned].positive? %>
+                <span class="rounded bg-emerald-50 text-emerald-700 px-1.5 py-0.5"><%= sum[:offtake_learned] %> SKUs</span>
+              <% else %>
+                <span class="text-slate-400">proxy</span>
+              <% end %>
+            </td>
+            <td class="px-4 py-3 text-right whitespace-nowrap">
+              <%= link_to "Detail", store_path(s), class: "text-sm font-semibold text-slate-600 hover:underline mr-3" %>
+              <% if can?(:stock_count, :download) %>
+                <%= link_to "CSV", stock_report_store_path(s, format: :csv), class: "text-sm font-semibold text-[#1f4b99] hover:underline" %>
+              <% end %>
+            </td>
+          </tr>
+        <% end %>
+        <% if @stores.empty? %>
+          <tr><td colspan="7" class="px-4 py-10 text-center text-sm text-slate-500">No stores have been stock-checked yet. Once a seller/merchandiser counts a shelf, it appears here with a suggested case order.</td></tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+  <div class="px-4 py-3"><%= paginate @stores if respond_to?(:paginate) %></div>
+</div>

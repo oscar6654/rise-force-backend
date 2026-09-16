@@ -126,6 +126,51 @@ class SellerIntelligence
     end
   end
 
+  # ---- Nearby whitespace: what the NEAREST stores carry that this one lacks --
+  # Unlike cross_sell (same-channel peers), peers here are simply the
+  # geographically NEAREST stores of ANY channel/type — the visited store may be
+  # a big account while its neighbours are small sari-sari, and we still want to
+  # know what moves around it. "Carried" is barcode-level (the distribution unit)
+  # from vcsi confirmed sellout OR an SFA order within the window; ranked by how
+  # many nearby stores carry a barcode this store doesn't. Live, but bounded to
+  # the nearest `peers` stores so the query stays cheap.
+  NEARBY_RADIUS_KM = 5.0
+  NEARBY_PEERS = 40
+  WHITESPACE_DAYS = 60
+
+  def nearby_whitespace(store, limit: 12, peers: NEARBY_PEERS, window_days: WHITESPACE_DAYS)
+    return [] unless store.latitude && store.longitude
+
+    peer_ids = nearest_store_ids(store, peers)
+    return [] if peer_ids.empty?
+
+    since = window_days.days.ago
+    carried = Hash.new { |h, k| h[k] = Set.new } # barcode => set of nearby store_ids
+
+    StoreSkuSellout.where(store_id: peer_ids).in_window(since).where("pieces > 0")
+                   .distinct.pluck(:store_id, :it_barcode)
+                   .each { |sid, bc| carried[bc.to_s.strip] << sid if bc.present? }
+    OrderLine.joins(:order, :product)
+             .where(orders: { store_id: peer_ids, status: %i[submitted batched downloaded invoiced] })
+             .where("orders.ordered_at >= ?", since)
+             .distinct.pluck("orders.store_id", "products.it_barcode")
+             .each { |sid, bc| carried[bc.to_s.strip] << sid if bc.present? }
+
+    mine = store_carried_barcodes(store, since)
+    ranked = carried.reject { |bc, _sids| bc.blank? || mine.include?(bc) }
+                    .sort_by { |_bc, sids| -sids.size }
+                    .first(limit)
+
+    ranked.filter_map do |bc, sids|
+      p = Product.representative_for(bc)
+      next unless p
+
+      { product_id: p.id, sku: p.sku, description: p.description,
+        peer_stores: sids.size,
+        reason: "#{sids.size} nearby store#{sids.size > 1 ? 's' : ''} carry this — you don't" }
+    end
+  end
+
   # ---- Next best action: the single highest-value thing to do here ----------
   # Composes pace gap + must-stock + cross-sell + live promos into a ranked,
   # human action list so the seller doesn't have to work it out.
@@ -245,6 +290,45 @@ class SellerIntelligence
          .where(longitude: (store.longitude - dLng)..(store.longitude + dLng))
          .limit(200)
          .pluck(:id)
+  end
+
+  # Nearest N stores of ANY channel by Haversine, bounding-box prefiltered.
+  def nearest_store_ids(store, n)
+    d_lat = NEARBY_RADIUS_KM / 111.0
+    d_lng = NEARBY_RADIUS_KM / (111.0 * Math.cos(store.latitude * Math::PI / 180).abs.clamp(0.01, 1))
+    Store.where.not(id: store.id)
+         .where.not(status: :closed)
+         .where(latitude: (store.latitude - d_lat)..(store.latitude + d_lat))
+         .where(longitude: (store.longitude - d_lng)..(store.longitude + d_lng))
+         .limit(400)
+         .pluck(:id, :latitude, :longitude)
+         .map { |id, lat, lng| [id, haversine(store.latitude, store.longitude, lat.to_f, lng.to_f)] }
+         .sort_by { |_id, dist| dist }
+         .first(n)
+         .map(&:first)
+  end
+
+  # Distinct barcodes this store already carries in the window (confirmed vcsi
+  # sellout or an SFA order) — the set to subtract from nearby whitespace.
+  def store_carried_barcodes(store, since)
+    set = Set.new
+    store.store_sku_sellouts.in_window(since).where("pieces > 0").distinct.pluck(:it_barcode)
+         .each { |bc| set << bc.to_s.strip if bc.present? }
+    OrderLine.joins(:order, :product)
+             .where(orders: { store_id: store.id }).where.not(orders: { status: :cancelled })
+             .where("orders.ordered_at >= ?", since)
+             .distinct.pluck("products.it_barcode")
+             .each { |bc| set << bc.to_s.strip if bc.present? }
+    set
+  end
+
+  def haversine(lat1, lon1, lat2, lon2)
+    rkm = 6371.0
+    d_lat = (lat2 - lat1) * Math::PI / 180
+    d_lon = (lon2 - lon1) * Math::PI / 180
+    a = Math.sin(d_lat / 2)**2 +
+        Math.cos(lat1 * Math::PI / 180) * Math.cos(lat2 * Math::PI / 180) * Math.sin(d_lon / 2)**2
+    2 * rkm * Math.asin([Math.sqrt(a), 1.0].min)
   end
 
   def month_elapsed_fraction

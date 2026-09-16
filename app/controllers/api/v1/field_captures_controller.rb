@@ -16,6 +16,9 @@ module Api
           sc.save!
           sc
         end
+        # Stamp the store's last-checked time so the console/list and the
+        # inventory engine can find the freshest shelf read without a scan.
+        visit.store&.update_column(:last_stock_checked_at, Time.current) if results.any?
         render json: { data: { saved: results.size }, meta: meta }, status: :created
       end
 

@@ -44,6 +44,35 @@ RSpec.describe SellerIntelligence do
     expect(ids).not_to include(coffee.id)
   end
 
+  it "recommends what the NEAREST stores carry, regardless of channel" do
+    mini_mart = Channel.create!(code: "MR", name: "Mini-mart", status: :active)
+    # A small neighbour on a DIFFERENT channel, right next door.
+    peer = create(:store, branch: branch, channel: mini_mart, category_code: "silver",
+                          latitude: 14.6005, longitude: 120.9805)
+    coffee = create(:product, it_barcode: "1111")
+    milk   = create(:product, it_barcode: "2222")
+    order_for(store, coffee) # this store already carries coffee
+    order_for(peer, coffee)
+    order_for(peer, milk)    # neighbour also carries milk -> whitespace = milk
+
+    recs = described_class.new(seller).nearby_whitespace(store)
+    ids = recs.map { |r| r[:product_id] }
+    expect(ids).to include(milk.id)
+    expect(ids).not_to include(coffee.id)
+    expect(recs.find { |r| r[:product_id] == milk.id }[:peer_stores]).to eq(1)
+  end
+
+  it "counts confirmed vcsi sellout as carried at nearby stores" do
+    peer = create(:store, branch: branch, channel: channel, category_code: "gold",
+                          latitude: 14.6002, longitude: 120.9802)
+    juice = create(:product, it_barcode: "3333")
+    StoreSkuSellout.create!(store: peer, it_barcode: "3333", pieces: 12, amount: 500,
+                            period_date: Date.current.beginning_of_month)
+
+    ids = described_class.new(seller).nearby_whitespace(store).map { |r| r[:product_id] }
+    expect(ids).to include(juice.id)
+  end
+
   it "builds a smart-start order from recent baskets" do
     coffee = create(:product)
     order_for(store, coffee, qty: 4, days_ago: 3)
