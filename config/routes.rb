@@ -33,7 +33,7 @@ Rails.application.routes.draw do
   resources :product_tiers, except: [:show, :destroy]
   resources :store_categories, except: [:show, :destroy]
   resources :stores do
-    member { get :stock_report; get :stock_history }
+    member { get :stock_report; get :stock_history; get :stock_offtake }
   end
   get "replenishment" => "replenishment#index", as: :replenishment_index
   resources :channels

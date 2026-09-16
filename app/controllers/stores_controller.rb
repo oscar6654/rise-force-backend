@@ -2,7 +2,7 @@ class StoresController < ApplicationController
   before_action -> { authorize!(:store, :view) }, only: [:index, :show]
   before_action -> { authorize!(:store, :create) }, only: [:new, :create]
   before_action -> { authorize!(:store, :update) }, only: [:edit, :update]
-  before_action :set_store, only: [:show, :edit, :update, :stock_report, :stock_history]
+  before_action :set_store, only: [:show, :edit, :update, :stock_report, :stock_history, :stock_offtake]
 
   def index
     scope = branch_scoped(Store.includes(:channel, :route, :branch, :seller, :store_category)).search(params[:q])
@@ -57,6 +57,23 @@ class StoresController < ApplicationController
       rows.each { |date, sku, desc, bc, qty, seller| out << [date, sku, desc, bc, qty.to_i, seller] }
     end
     send_data csv, filename: "stock_history_#{@store.code}_#{Date.current.iso8601}.csv", type: "text/csv"
+  end
+
+  # GET /stores/:id/stock_offtake.csv?from=&to= — sell-through analytics: per SKU
+  # total sold (offtake), delivered, and average daily rate over the range.
+  def stock_offtake
+    authorize!(:stock_count, :download)
+    require "csv"
+    rows = StoreInventoryEstimator.new(@store).offtake_analysis(from: parse_date(params[:from]), to: parse_date(params[:to]))
+    csv = CSV.generate do |out|
+      out << ["SKU", "Description", "IT barcode", "Counts", "First count", "Last count",
+              "Delivered (est)", "Sold (offtake)", "Days", "Avg offtake/day"]
+      rows.each do |r|
+        out << [r.sku, r.description, r.it_barcode, r.counts, r.first_count_on, r.last_count_on,
+                r.delivered, r.sold, r.days, r.avg_daily]
+      end
+    end
+    send_data csv, filename: "offtake_#{@store.code}_#{Date.current.iso8601}.csv", type: "text/csv"
   end
 
   # GET /stores/:id/stock_report.csv — compiled stock-check + ICO report.

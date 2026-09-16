@@ -54,6 +54,16 @@ RSpec.describe "Store stock-check console panel", type: :request do
     expect(response.body).not_to include(",100,")
   end
 
+  it "downloads offtake sell-through analytics for a range" do
+    get stock_offtake_store_path(store, format: :csv)
+    expect(response).to have_http_status(:ok)
+    expect(response.content_type).to include("text/csv")
+    expect(response.body).to include("Avg offtake/day")
+    expect(response.body).to include(coffee.sku)
+    # 100 → 40 over 10 days, no deliveries = 60 sold, 6/day.
+    expect(response.body).to include(",6.0")
+  end
+
   it "date-filters the count history shown on the store page" do
     get store_path(store, from: 7.days.ago.to_date.iso8601)
     expect(response).to have_http_status(:ok)

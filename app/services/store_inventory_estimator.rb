@@ -82,6 +82,45 @@ class StoreInventoryEstimator
     end
   end
 
+  # Sell-through analytics over a date range: per SKU, total sold (offtake),
+  # delivered, and average daily offtake across the counts inside [from, to].
+  # Needs ≥2 counts in the window for a SKU to have a rate.
+  OfftakeRow = Struct.new(:product_id, :sku, :description, :it_barcode, :counts,
+                          :first_count_on, :last_count_on, :delivered, :sold,
+                          :days, :avg_daily, keyword_init: true)
+
+  def offtake_analysis(from: nil, to: nil)
+    deliveries = monthly_deliveries
+    stock_series.filter_map do |pid, all_points|
+      points = all_points.select { |d, _| (from.nil? || d >= from) && (to.nil? || d <= to) }
+      next if points.size < 2
+
+      rep = representative(pid)
+      next unless rep
+
+      bc = rep.it_barcode.to_s.strip
+      sold = 0.0
+      delivered = 0.0
+      days = 0
+      points.each_cons(2) do |(d0, q0), (d1, q1)|
+        gap = (d1 - d0).to_i
+        next if gap <= 0
+
+        del = delivered_between(deliveries[bc], d0, d1).to_f
+        consumed = q0.to_f + del - q1.to_f
+        consumed = 0.0 if consumed.negative?
+        sold += consumed
+        delivered += del
+        days += gap
+      end
+      next if days <= 0
+
+      OfftakeRow.new(product_id: rep.id, sku: rep.sku, description: rep.description, it_barcode: rep.it_barcode,
+                     counts: points.size, first_count_on: points.first.first, last_count_on: points.last.first,
+                     delivered: delivered.round, sold: sold.round, days: days, avg_daily: (sold / days).round(2))
+    end.sort_by { |r| -r.sold }
+  end
+
   private
 
   # product_id => [[date, pieces], ...] ascending; same-day recount keeps the last.
