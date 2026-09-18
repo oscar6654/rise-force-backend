@@ -1,0 +1,39 @@
+<% content_for :page_title, "Field managers" %>
+<% content_for :page_actions do %>
+  <% if can?(:seller, :create) %>
+    <%= link_to "New manager", new_manager_path, class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
+  <% end %>
+<% end %>
+
+<div class="rounded-xl border border-slate-200 bg-white p-4 mb-4 text-sm text-slate-600">
+  Field managers sign into the Rise Force app with their <strong>manager code + PIN</strong> and get a team view: combined performance of their sellers, drilling into each seller and store. Assign sellers to a manager on each seller's page.
+</div>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse min-w-[640px]">
+      <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+        <th class="px-4 py-2.5">Manager</th><th class="px-4 py-2.5">Code</th><th class="px-4 py-2.5">Branch</th>
+        <th class="px-4 py-2.5 text-right">Sellers</th><th class="px-4 py-2.5">Status</th><th></th>
+      </tr></thead>
+      <tbody>
+        <% @managers.each do |m| %>
+          <tr class="border-b border-slate-100 hover:bg-slate-50">
+            <td class="px-4 py-3 text-sm font-medium"><%= m.name %></td>
+            <td class="px-4 py-3 font-mono text-xs text-slate-600"><%= m.code %></td>
+            <td class="px-4 py-3 text-sm text-slate-600"><%= m.branch&.name || "All" %></td>
+            <td class="px-4 py-3 text-right text-sm"><%= m.sellers.count %></td>
+            <td class="px-4 py-3"><span class="rounded-full text-[11px] font-semibold px-2 py-0.5 <%= m.active? ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600' %>"><%= m.status.titleize %></span></td>
+            <td class="px-4 py-3 text-right">
+              <% if can?(:seller, :update) %><%= link_to "Edit", edit_manager_path(m), class: "text-sm font-semibold text-[#1f4b99] hover:underline" %><% end %>
+            </td>
+          </tr>
+        <% end %>
+        <% if @managers.empty? %>
+          <tr><td colspan="6" class="px-4 py-10 text-center text-sm text-slate-500">No managers yet. Create one, then assign sellers to it.</td></tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+  <div class="px-4 py-3"><%= paginate @managers if respond_to?(:paginate) %></div>
+</div>

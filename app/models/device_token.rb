@@ -1,7 +1,7 @@
 require "digest"
 
 class DeviceToken < ApplicationRecord
-  belongs_to :seller
+  belongs_to :seller, optional: true # nil for a future manager token
 
   validates :jti, presence: true, uniqueness: true
 

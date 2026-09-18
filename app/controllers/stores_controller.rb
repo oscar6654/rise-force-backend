@@ -37,7 +37,7 @@ class StoresController < ApplicationController
     @from = parse_date(params[:from])
     @to   = parse_date(params[:to])
     @stock_check_dates = count_history_scope(@store, @from, @to)
-                         .group(Arel.sql("COALESCE(visits.visit_date, stock_counts.created_at::date)"))
+                         .group(Arel.sql(StockCount::DATE_SQL))
                          .count
                          .sort_by { |d, _| d }.reverse
   end
@@ -48,8 +48,8 @@ class StoresController < ApplicationController
     authorize!(:stock_count, :download)
     require "csv"
     rows = count_history_scope(@store, parse_date(params[:from]), parse_date(params[:to]))
-           .order(Arel.sql("COALESCE(visits.visit_date, stock_counts.created_at::date) DESC"))
-           .pluck(Arel.sql("COALESCE(visits.visit_date, stock_counts.created_at::date)"),
+           .order(Arel.sql("#{StockCount::DATE_SQL} DESC"))
+           .pluck(Arel.sql(StockCount::DATE_SQL),
                   "products.sku", "products.description", "products.it_barcode",
                   "stock_counts.qty", "sellers.name")
     csv = CSV.generate do |out|
@@ -113,19 +113,17 @@ class StoresController < ApplicationController
 
   private
 
-  DATE_EXPR = "COALESCE(visits.visit_date, stock_counts.created_at::date)".freeze
-
   def parse_date(str)
     str.present? ? Date.parse(str) : nil
   rescue ArgumentError
     nil
   end
 
-  # Raw stock counts for a store, optionally within a counted-on date range.
+  # Raw stock counts for a store (both grains), optionally within a date range.
   def count_history_scope(store, from, to)
-    scope = StockCount.joins(:product, visit: :seller).where(visits: { store_id: store.id })
-    scope = scope.where("#{DATE_EXPR} >= ?", from) if from
-    scope = scope.where("#{DATE_EXPR} <= ?", to) if to
+    scope = StockCount.for_store(store.id).joins(:product).left_joins(visit: :seller)
+    scope = scope.where("#{StockCount::DATE_SQL} >= ?", from) if from
+    scope = scope.where("#{StockCount::DATE_SQL} <= ?", to) if to
     scope
   end
 

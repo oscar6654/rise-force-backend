@@ -28,10 +28,45 @@
       <%= f.password_field :pin, autocomplete: "new-password", placeholder: (f.object.pin_set? ? "•••• (set — leave blank to keep)" : "Set a PIN for the app"), class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
       <p class="text-[11px] text-slate-400 mt-1">The seller signs into the Rise Force app with their seller code + this PIN.</p>
     </div>
+
+    <div class="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <div class="text-xs font-semibold text-slate-600 mb-2">Diser login (optional) — a stock-check-only helper on this seller's stores</div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div>
+          <%= f.label :diser_code, "Diser code", class: "block text-sm font-medium text-slate-700 mb-1" %>
+          <%= f.text_field :diser_code, placeholder: "e.g. DSR-538614", class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+        </div>
+        <div>
+          <%= f.label :diser_name, "Diser name", class: "block text-sm font-medium text-slate-700 mb-1" %>
+          <%= f.text_field :diser_name, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+        </div>
+        <div>
+          <%= f.label :diser_pin, "Diser PIN", class: "block text-sm font-medium text-slate-700 mb-1" %>
+          <%= f.password_field :diser_pin, autocomplete: "new-password", placeholder: (f.object.diser_pin_set? ? "•••• (set — blank to keep)" : "Set a PIN"), class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+        </div>
+      </div>
+      <p class="text-[11px] text-slate-400 mt-1">Leave the code blank for no diser login. The diser signs in with this code + PIN and only sees stock check (scan + submit), offline. Their counts feed the same inventory/ICO engine but never affect coverage.</p>
+    </div>
+
+    <div class="md:col-span-2">
+      <%= f.label :primary_seller_id, "Login group — primary seller (optional)", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.collection_select :primary_seller_id,
+            Seller.where.not(id: f.object.id).where(primary_seller_id: nil).order(:name), :id, :name,
+            { include_blank: "— this is its own login —" },
+            class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm", data: { controller: "tom-select", "tom-select-placeholder-value": "Search sellers…" } %>
+      <p class="text-[11px] text-slate-400 mt-1">For a rep covering 2 branches with 2 vcsi codes: keep one seller as the login and point the extra record(s) here. One app login then sees BOTH branches' stores &amp; combined sales; each record keeps its own rep code &amp; sync.</p>
+    </div>
+
     <div>
       <%= f.label :vcsi_sales_rep_ref, "vcsi_rise sales rep code", class: "block text-sm font-medium text-slate-700 mb-1" %>
       <%= f.text_field :vcsi_sales_rep_ref, placeholder: "e.g. 538614", class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
       <p class="text-[11px] text-slate-400 mt-1">Join key to vcsi_rise sellout & targets (sales_rep code).</p>
+    </div>
+    <div>
+      <%= f.label :manager_id, "Field manager (app team view)", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.collection_select :manager_id, Manager.active.order(:name), :id, :name, { include_blank: "— none —" },
+            class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm", data: { controller: "tom-select", "tom-select-placeholder-value": "Search managers…" } %>
+      <p class="text-[11px] text-slate-400 mt-1">Assigns this seller to a manager's mobile team view. <%= link_to "Manage managers", managers_path, class: "text-[#1f4b99] hover:underline" %>.</p>
     </div>
     <div>
       <%= f.label :user_id, "Assigned console user", class: "block text-sm font-medium text-slate-700 mb-1" %>

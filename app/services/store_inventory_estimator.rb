@@ -123,15 +123,13 @@ class StoreInventoryEstimator
 
   private
 
-  # product_id => [[date, pieces], ...] ascending; same-day recount keeps the last.
+  # product_id => [[date, pieces], ...] ascending; same-day recount keeps the
+  # last. Spans both grains — seller counts (via visit) and diser counts (store).
   def stock_series
     grouped = Hash.new { |h, k| h[k] = {} }
-    StockCount.joins(:visit)
-              .where(visits: { store_id: @store.id })
-              .order(Arel.sql("COALESCE(visits.visit_date, stock_counts.created_at::date) ASC"))
-              .pluck("stock_counts.product_id",
-                     Arel.sql("COALESCE(visits.visit_date, stock_counts.created_at::date)"),
-                     "stock_counts.qty")
+    StockCount.for_store(@store.id)
+              .order(Arel.sql("#{StockCount::DATE_SQL} ASC"))
+              .pluck("stock_counts.product_id", Arel.sql(StockCount::DATE_SQL), "stock_counts.qty")
               .each { |pid, date, qty| grouped[pid][date.to_date] = qty.to_d }
     grouped.transform_values { |m| m.sort_by(&:first) }
   end

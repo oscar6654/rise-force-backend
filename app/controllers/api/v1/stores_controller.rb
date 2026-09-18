@@ -173,10 +173,12 @@ module Api
         @store = Store.find(params[:id])
       end
 
-      # The seller's own stores: directly assigned or on one of their routes.
+      # The login group's stores: directly assigned or on one of their routes
+      # (union across all seller records this login represents).
       def seller_stores
-        Store.where(seller: current_seller)
-             .or(Store.where(route_id: Route.where(seller: current_seller).select(:id)))
+        ids = current_group_ids
+        Store.where(seller_id: ids)
+             .or(Store.where(route_id: Route.where(seller_id: ids).select(:id)))
       end
 
       def recent_orders_json

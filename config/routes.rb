@@ -36,6 +36,7 @@ Rails.application.routes.draw do
     member { get :stock_report; get :stock_history; get :stock_offtake }
   end
   get "replenishment" => "replenishment#index", as: :replenishment_index
+  resources :managers, except: [:show, :destroy]
   resources :channels
   resources :products
   resources :product_channels, only: [:index]
@@ -105,6 +106,10 @@ Rails.application.routes.draw do
       get "stores/:id/cross_sell"        => "stores#cross_sell"
       get "stores/:id/recommended"       => "stores#recommended"
       get "stores/:id/inventory"         => "stores#inventory"
+
+      # Field-manager app views
+      get "manager/team"          => "manager#team"
+      get "manager/sellers/:id"   => "manager#seller"
 
       resources :store_registrations, only: [:create, :index]
 

@@ -3,9 +3,27 @@ class Seller < ApplicationRecord
   # with seller_code + this PIN. `validations: false` so a blank PIN is allowed
   # (falls back to the shared PIN until one is set).
   has_secure_password :pin, validations: false
+  # A diser (merchandiser helper) shares the seller's stores but logs in with
+  # their own credentials and only does stock checks. Blank = no diser login.
+  has_secure_password :diser_pin, validations: false
 
   belongs_to :branch
   belongs_to :user, optional: true
+  belongs_to :manager, optional: true # field manager who oversees this seller
+  # Login group: extra seller records (2nd branch / 2nd vcsi rep code) point to a
+  # primary so one login sees them all combined. Each keeps its own rep + syncs.
+  belongs_to :primary_seller, class_name: "Seller", optional: true
+  has_many :secondary_sellers, class_name: "Seller", foreign_key: :primary_seller_id, dependent: :nullify
+
+  # Every seller_id in this login's group (works logging in as any member).
+  def login_group_ids
+    root = primary_seller_id || id
+    Seller.where("id = :r OR primary_seller_id = :r", r: root).pluck(:id)
+  end
+
+  def grouped_login?
+    primary_seller_id.present? || secondary_sellers.exists?
+  end
   has_many :routes, dependent: :nullify
   has_many :stores, dependent: :nullify              # directly-assigned stores
   has_many :route_stores, through: :routes, source: :stores
@@ -24,6 +42,14 @@ class Seller < ApplicationRecord
 
   def pin_set?
     pin_digest.present?
+  end
+
+  def diser_pin_set?
+    diser_pin_digest.present?
+  end
+
+  def diser_login?
+    diser_code.present?
   end
 
   scope :for_branches, ->(ids) { where(branch_id: ids) }
@@ -94,11 +120,16 @@ class Seller < ApplicationRecord
   # seller who ordered at 1 of 8 stores due today, and nothing else this month,
   # reads 1/8 — and it accumulates as the month runs, matching the daily tile.
   def route_productive_call_pct(month = Date.current.beginning_of_month, upto: Date.current)
-    planned = Store.joins(:route).where(routes: { seller_id: id })
-                   .pluck(:id, :visit_day, :week_pattern)
+    Seller.route_pc_for_ids(login_group_ids, month, upto)
+  end
+
+  # Month-running route productivity across a SET of seller ids (a login group or
+  # a manager's team): scheduled route store-days ordered / total scheduled.
+  def self.route_pc_for_ids(ids, month = Date.current.beginning_of_month, upto = Date.current)
+    planned = Store.joins(:route).where(routes: { seller_id: ids }).pluck(:id, :visit_day, :week_pattern)
     return nil if planned.empty?
 
-    order_days = Order.where(seller: self).where.not(status: :cancelled)
+    order_days = Order.where(seller_id: ids).where.not(status: :cancelled)
                       .where(ordered_at: month.beginning_of_day..upto.end_of_day)
                       .pluck(:store_id, :ordered_at)
                       .map { |sid, at| [sid, at.to_date] }.to_set
@@ -115,6 +146,20 @@ class Seller < ApplicationRecord
       end
     end
     scheduled.positive? ? (productive * 100.0 / scheduled).round : nil
+  end
+
+  # Frequency rule check without materializing a Store (mirrors Store#due_on?).
+  # visit_day/week_pattern arrive as the mapped enum strings from pluck.
+  def self.due_on_day?(visit_day, week_pattern, date, wday = date.wday)
+    return false if visit_day.nil?
+    return false unless Store.visit_days[visit_day] == wday
+
+    case week_pattern
+    when "every_week" then true
+    when "weeks_1_3"  then ((date.day - 1) / 7).even? # weeks 1,3 => index 0,2
+    when "weeks_2_4"  then ((date.day - 1) / 7).odd?
+    else false
+    end
   end
 
   # Monthly target: the synced vcsi_rise SellerTarget for the month, falling
@@ -149,19 +194,4 @@ class Seller < ApplicationRecord
     t.positive? ? (blended_actual(month) / t * 100).round : nil
   end
 
-  private
-
-  # Frequency rule check without materializing a Store (mirrors Store#due_on?).
-  # visit_day/week_pattern arrive as the mapped enum strings from pluck.
-  def due_on_day?(visit_day, week_pattern, date, wday)
-    return false if visit_day.nil?
-    return false unless Store.visit_days[visit_day] == wday
-
-    case week_pattern
-    when "every_week" then true
-    when "weeks_1_3"  then ((date.day - 1) / 7).even? # weeks 1,3 => index 0,2
-    when "weeks_2_4"  then ((date.day - 1) / 7).odd?
-    else false
-    end
-  end
 end

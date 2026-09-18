@@ -4,12 +4,13 @@ module Api
       # GET /api/v1/me/targets?period=mtd
       def targets
         month = Date.current.beginning_of_month
-        target = SellerTarget.find_by(seller: current_seller, period_type: :mtd, period_date: month)&.target_amount || 0
-        actual = SelloutSnapshot.mtd_actual_for(current_seller, month: month)
+        ids = current_group_ids # login group: sum across the seller's 2-3 records
+        target = SellerTarget.where(seller_id: ids, period_type: :mtd, period_date: month).sum(:target_amount)
+        actual = SelloutSnapshot.where(seller_id: ids, period_type: :mtd, period_date: month).sum(:amount)
         # "To invoice" = value of SFA presell orders taken this month, pending OSB
         # invoicing. Distinct from vcsi_rise confirmed sellout (mostly non-SFA, can
         # be negative), so NOT reconciled against it — just what the seller ordered.
-        presell = Order.where(seller: current_seller).where.not(status: :cancelled)
+        presell = Order.where(seller_id: ids).where.not(status: :cancelled)
                        .where(ordered_at: month.beginning_of_day..month.end_of_month.end_of_day)
                        .sum(:total_amount)
         render json: { data: {
@@ -24,18 +25,19 @@ module Api
         today = Date.current
         month = today.beginning_of_month
         seller = current_seller
-        planned = Store.joins(:route).where(routes: { seller_id: seller.id }).select { |s| s.due_on?(today) }
+        ids = current_group_ids # login group across branches
+        planned = Store.joins(:route).where(routes: { seller_id: ids }).select { |s| s.due_on?(today) }
         planned_ids = planned.map(&:id)
-        visited = Visit.where(seller: seller, visit_date: today).distinct.count(:store_id)
+        visited = Visit.where(seller_id: ids, visit_date: today).distinct.count(:store_id)
         # Route completion counts only PLANNED stores visited (off-route
         # deviations don't inflate the day's goal).
-        visited_planned = planned_ids.any? ? Visit.where(seller: seller, visit_date: today, store_id: planned_ids).distinct.count(:store_id) : 0
-        seller_store_ids = Store.joins(:route).where(routes: { seller_id: seller.id }).select(:id)
+        visited_planned = planned_ids.any? ? Visit.where(seller_id: ids, visit_date: today, store_id: planned_ids).distinct.count(:store_id) : 0
+        seller_store_ids = Store.joins(:route).where(routes: { seller_id: ids }).select(:id)
         # Active stores (BLENDED): a store buying in vcsi_rise this month
         # (confirmed) OR with a presell order this month (to-invoice) — the same
         # confirmed+presell model as the sales number.
         active_vcsi = Store.active_in_vcsi(month).where(id: seller_store_ids).pluck(:id).to_set
-        active_presell = Order.where(seller: seller, ordered_at: month..).where.not(status: :cancelled)
+        active_presell = Order.where(seller_id: ids, ordered_at: month..).where.not(status: :cancelled)
                               .distinct.pluck(:store_id).to_set
         active_stores = (active_vcsi | active_presell).size
 
@@ -51,22 +53,22 @@ module Api
         end
 
         # Growth: seller confirmed sellout this month vs last month (vcsi truth).
-        this_m = SelloutSnapshot.mtd_actual_for(seller, month: month)
-        last_m = SelloutSnapshot.mtd_actual_for(seller, month: month - 1.month)
-        target = SellerTarget.find_by(seller: seller, period_type: :mtd, period_date: month)&.target_amount || 0
+        this_m = SelloutSnapshot.where(seller_id: ids, period_type: :mtd, period_date: month).sum(:amount)
+        last_m = SelloutSnapshot.where(seller_id: ids, period_type: :mtd, period_date: month - 1.month).sum(:amount)
+        target = SellerTarget.where(seller_id: ids, period_type: :mtd, period_date: month).sum(:target_amount)
 
         # Daily goal + streak: roll up today, then compute the run of completed
         # route-days. Productive call = a visit that closed with an order today.
-        productive_today = Visit.where(seller: seller, visit_date: today, status: :closed_with_order).distinct.count(:store_id)
-        orders_today = Order.where(seller: seller, ordered_at: today.all_day).where.not(status: :cancelled).distinct.count(:store_id)
+        productive_today = Visit.where(seller_id: ids, visit_date: today, status: :closed_with_order).distinct.count(:store_id)
+        orders_today = Order.where(seller_id: ids, ordered_at: today.all_day).where.not(status: :cancelled).distinct.count(:store_id)
 
         # Route productivity = PLANNED stores that got an order today (visit closed
         # with an order, or an SFA order placed) / total planned stores today.
         # So visiting 1 of 8 and ordering at 1 reads 1/8 = 13%, not 100%.
         if planned_ids.any?
-          ordered_planned = Order.where(seller: seller, store_id: planned_ids, ordered_at: today.all_day)
+          ordered_planned = Order.where(seller_id: ids, store_id: planned_ids, ordered_at: today.all_day)
                                  .where.not(status: :cancelled).distinct.pluck(:store_id).to_set
-          cwo_planned = Visit.where(seller: seller, store_id: planned_ids, visit_date: today, status: :closed_with_order)
+          cwo_planned = Visit.where(seller_id: ids, store_id: planned_ids, visit_date: today, status: :closed_with_order)
                              .distinct.pluck(:store_id).to_set
           route_productive = (ordered_planned | cwo_planned).size
           route_pc = (route_productive * 100.0 / planned.size).round
@@ -105,7 +107,7 @@ module Api
       # ("₱120k behind pace", "4 must-stock SKUs missing", "no order in 21d").
       def priorities
         today = Date.current
-        due_ids = Store.joins(:route).where(routes: { seller_id: current_seller.id })
+        due_ids = Store.joins(:route).where(routes: { seller_id: current_group_ids })
                        .select { |s| s.due_on?(today) }.map(&:id)
         rows = SellerIntelligence.new(current_seller).priorities(store_ids: due_ids).map do |r|
           s = r[:store]
@@ -139,7 +141,8 @@ module Api
       # GET /api/v1/me/call_list?date=YYYY-MM-DD
       def call_list
         date = params[:date].present? ? Date.parse(params[:date]) : Date.current
-        stores = Store.joins(:route).where(routes: { seller_id: current_seller.id })
+        ids = current_group_ids # login group across branches
+        stores = Store.joins(:route).where(routes: { seller_id: ids })
                       .order(:visit_sequence)
         due = stores.select { |s| s.due_on?(date) }
         due_ids = due.map(&:id)
@@ -148,8 +151,8 @@ module Api
         # aren't on the plan (e.g. an unplanned revisit) — surfaced here flagged
         # so the day's activity is complete on the Route tab.
         day = date.beginning_of_day..date.end_of_day
-        activity_ids = (Visit.where(seller: current_seller, visit_date: date).distinct.pluck(:store_id) +
-                        Order.where(seller: current_seller).where.not(status: :cancelled)
+        activity_ids = (Visit.where(seller_id: ids, visit_date: date).distinct.pluck(:store_id) +
+                        Order.where(seller_id: ids).where.not(status: :cancelled)
                              .where(ordered_at: day).distinct.pluck(:store_id)).uniq
         off_stores = Store.where(id: activity_ids - due_ids).order(:name).to_a
         all_ids = due_ids + off_stores.map(&:id)
@@ -158,10 +161,10 @@ module Api
         #   ordered   = an order was placed (or a visit closed with an order)
         #   no_order  = checked in / closed without an order
         #   none      = not visited yet
-        ordered = Order.where(seller: current_seller, store_id: all_ids).where.not(status: :cancelled)
+        ordered = Order.where(seller_id: ids, store_id: all_ids).where.not(status: :cancelled)
                        .where(ordered_at: day).distinct.pluck(:store_id).to_set
-        visited = Visit.where(seller: current_seller, store_id: all_ids, visit_date: date).distinct.pluck(:store_id).to_set
-        Visit.where(seller: current_seller, store_id: all_ids, visit_date: date, status: :closed_with_order)
+        visited = Visit.where(seller_id: ids, store_id: all_ids, visit_date: date).distinct.pluck(:store_id).to_set
+        Visit.where(seller_id: ids, store_id: all_ids, visit_date: date, status: :closed_with_order)
              .distinct.pluck(:store_id).each { |id| ordered << id }
 
         row = lambda do |s, off_route|

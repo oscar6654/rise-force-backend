@@ -29,11 +29,17 @@ module Api
                         status: :unprocessable_entity)
         end
 
+        # Login group: attribute the order to the seller record that OWNS this
+        # store (its branch / vcsi rep code), so OSB batches + confirmed sellout
+        # line up — even though the login may be another group member.
+        os = store.assigned_seller
+        order_seller = (os && current_group_ids.include?(os.id)) ? os : current_seller
+
         resolver = PricingResolver.new
         order = nil
         Order.transaction do
           order = Order.create!(
-            client_uuid: uuid, seller: current_seller, store: store, branch: store.branch,
+            client_uuid: uuid, seller: order_seller, store: store, branch: store.branch,
             route: store.route, pricing_version_id: resolver.version&.id,
             ordered_at: params[:ordered_at] || Time.current, synced_at: Time.current,
             status: :submitted, notes: params[:notes]
@@ -49,7 +55,7 @@ module Api
       # GET /api/v1/stores/:id/order_history?limit=3  (smart-start prefill)
       def history
         store = Store.find(params[:id])
-        orders = Order.where(store: store, seller: current_seller).order(ordered_at: :desc)
+        orders = Order.where(store: store, seller_id: current_group_ids).order(ordered_at: :desc)
                       .limit((params[:limit] || 3).to_i).includes(order_lines: :product)
         rows = orders.map do |o|
           { ordered_at: o.ordered_at,

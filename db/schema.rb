@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_16_120001) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_18_120001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -137,13 +137,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_16_120001) do
     t.string "device_id"
     t.string "jti", null: false
     t.datetime "last_used_at"
+    t.bigint "manager_id"
     t.string "platform"
     t.datetime "refresh_expires_at"
     t.string "refresh_token_digest"
     t.datetime "revoked_at"
-    t.bigint "seller_id", null: false
+    t.string "role", default: "seller", null: false
+    t.bigint "seller_id"
     t.datetime "updated_at", null: false
     t.index ["jti"], name: "index_device_tokens_on_jti", unique: true
+    t.index ["manager_id"], name: "index_device_tokens_on_manager_id"
     t.index ["seller_id", "device_id"], name: "index_device_tokens_on_seller_id_and_device_id"
     t.index ["seller_id"], name: "index_device_tokens_on_seller_id"
   end
@@ -179,6 +182,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_16_120001) do
     t.index ["created_at"], name: "index_job_logs_on_created_at"
     t.index ["job_type", "status"], name: "index_job_logs_on_job_type_and_status"
     t.index ["triggered_by_id"], name: "index_job_logs_on_triggered_by_id"
+  end
+
+  create_table "managers", force: :cascade do |t|
+    t.bigint "branch_id"
+    t.string "code", null: false
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.string "pin_digest"
+    t.integer "status", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["branch_id"], name: "index_managers_on_branch_id"
+    t.index ["code"], name: "index_managers_on_code", unique: true
   end
 
   create_table "order_batches", force: :cascade do |t|
@@ -500,11 +515,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_16_120001) do
     t.datetime "created_at", null: false
     t.string "device_id"
     t.datetime "device_registered_at"
+    t.string "diser_code"
+    t.string "diser_name"
+    t.string "diser_pin_digest"
     t.string "gsm_name"
     t.datetime "last_sync_at"
+    t.bigint "manager_id"
     t.string "name", null: false
     t.string "om_name"
     t.string "pin_digest"
+    t.bigint "primary_seller_id"
     t.decimal "sales_target", precision: 15, scale: 2
     t.string "seller_code", null: false
     t.integer "status", default: 0, null: false
@@ -515,6 +535,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_16_120001) do
     t.string "vcsi_sales_rep_ref"
     t.index ["branch_id", "status"], name: "index_sellers_on_branch_id_and_status"
     t.index ["branch_id"], name: "index_sellers_on_branch_id"
+    t.index ["diser_code"], name: "index_sellers_on_diser_code", unique: true, where: "(diser_code IS NOT NULL)"
+    t.index ["manager_id"], name: "index_sellers_on_manager_id"
+    t.index ["primary_seller_id"], name: "index_sellers_on_primary_seller_id"
     t.index ["seller_code"], name: "index_sellers_on_seller_code", unique: true
     t.index ["user_id"], name: "index_sellers_on_user_id"
     t.index ["vcsi_sales_rep_ref"], name: "index_sellers_on_vcsi_sales_rep_ref"
@@ -559,14 +582,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_16_120001) do
 
   create_table "stock_counts", force: :cascade do |t|
     t.string "client_uuid", null: false
+    t.date "counted_on"
     t.datetime "created_at", null: false
     t.integer "prefilled_from", default: 0, null: false
     t.bigint "product_id", null: false
     t.decimal "qty", precision: 12, scale: 2, default: "0.0", null: false
+    t.bigint "store_id"
     t.datetime "updated_at", null: false
-    t.bigint "visit_id", null: false
+    t.bigint "visit_id"
     t.index ["client_uuid"], name: "index_stock_counts_on_client_uuid", unique: true
     t.index ["product_id"], name: "index_stock_counts_on_product_id"
+    t.index ["store_id"], name: "index_stock_counts_on_store_id"
     t.index ["visit_id", "product_id"], name: "index_stock_counts_on_visit_id_and_product_id", unique: true
     t.index ["visit_id"], name: "index_stock_counts_on_visit_id"
   end
@@ -816,6 +842,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_16_120001) do
   add_foreign_key "device_tokens", "sellers"
   add_foreign_key "incentive_schemes", "branches"
   add_foreign_key "job_logs", "users", column: "triggered_by_id"
+  add_foreign_key "managers", "branches"
   add_foreign_key "order_batches", "branches"
   add_foreign_key "order_batches", "sellers"
   add_foreign_key "order_batches", "users", column: "downloaded_by_id"
@@ -856,6 +883,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_16_120001) do
   add_foreign_key "seller_targets", "branches"
   add_foreign_key "seller_targets", "sellers"
   add_foreign_key "sellers", "branches"
+  add_foreign_key "sellers", "managers"
+  add_foreign_key "sellers", "sellers", column: "primary_seller_id"
   add_foreign_key "sellers", "users"
   add_foreign_key "sellout_snapshots", "branches"
   add_foreign_key "sellout_snapshots", "products"

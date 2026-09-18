@@ -269,8 +269,9 @@ class SellerIntelligence
   private
 
   def seller_stores
-    Store.where(seller: @seller)
-         .or(Store.where(route_id: Route.where(seller: @seller).select(:id)))
+    ids = @seller.login_group_ids # login group across branches
+    Store.where(seller_id: ids)
+         .or(Store.where(route_id: Route.where(seller_id: ids).select(:id)))
          .where.not(vcsi_customer_ref: [nil, ''])
          .includes(:channel)
   end

@@ -9,7 +9,7 @@ module Api
       rescue_from ActiveRecord::RecordInvalid, with: :unprocessable
       rescue_from ActionController::ParameterMissing, with: :bad_request
 
-      attr_reader :current_seller
+      attr_reader :current_seller, :current_manager, :current_role
 
       private
 
@@ -23,7 +23,26 @@ module Api
 
         @current_device = device
         @current_seller = device.seller
+        @current_manager = device.manager_id ? Manager.find_by(id: device.manager_id) : nil
+        @current_role = device.role.presence || "seller"
         device.update_column(:last_used_at, Time.current)
+      end
+
+      def require_manager!
+        render_unauthorized unless current_role == "manager" && current_manager
+      end
+
+      # Every seller_id this login represents (login group: 1 login → 2-3 seller
+      # records across branches). Falls back to just the current seller.
+      def current_group_ids
+        @current_group_ids ||= current_seller&.login_group_ids || []
+      end
+
+      def diser? = current_role == "diser"
+
+      # Guard for endpoints a diser must not touch (orders, targets, coverage…).
+      def deny_diser!
+        render_unauthorized if diser?
       end
 
       def render_unauthorized

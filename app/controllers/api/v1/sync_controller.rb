@@ -204,8 +204,15 @@ module Api
       private
 
       def seller_stores
-        Store.joins(:route).where(routes: { seller_id: current_seller.id })
-             .or(Store.where(branch_id: current_seller.branch_id))
+        # Union across the login group so one login sees BOTH branches' stores.
+        # Plain Store.where clauses (route match via subquery) so `.or` stays
+        # structurally compatible and routeless stores aren't dropped by a join.
+        ids = current_group_ids
+        branch_ids = Seller.where(id: ids).distinct.pluck(:branch_id)
+        route_store_ids = Store.joins(:route).where(routes: { seller_id: ids }).select(:id)
+        Store.where(seller_id: ids)
+             .or(Store.where(id: route_store_ids))
+             .or(Store.where(branch_id: branch_ids))
       end
 
       def store_json(s)

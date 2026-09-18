@@ -12,6 +12,7 @@ module ApplicationHelper
       "Field" => [
         NavItem.new(label: "Approvals", path: store_registrations_path, icon: "✓", resource: :store_registration),
         NavItem.new(label: "Sellers", path: sellers_path, icon: "◍", resource: :seller),
+        NavItem.new(label: "Field managers", path: managers_path, icon: "◈", resource: :seller),
         NavItem.new(label: "Route plans", path: routes_path, icon: "⇄", resource: :route_plan),
         NavItem.new(label: "Orders", path: orders_path, icon: "🧾", resource: :order),
         NavItem.new(label: "Batch download", path: order_batches_path, icon: "⭳", resource: :order_batch),
