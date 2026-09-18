@@ -27,11 +27,23 @@
     <%= f.password_field :pin, autocomplete: "new-password", placeholder: (f.object.pin_set? ? "•••• (set — blank to keep)" : "Set a PIN"), class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
   </div>
 
+  <div class="md:col-span-2">
+    <%= f.label :seller_ids, "Sellers under this manager", class: "block text-sm font-medium text-slate-700 mb-1" %>
+    <%= hidden_field_tag "manager[seller_ids][]", "" %>
+    <%= f.select :seller_ids,
+          options_for_select(
+            Seller.active.where(primary_seller_id: nil).includes(:branch).order(:name).map { |s| ["#{s.name} · #{s.branch&.name}", s.id] },
+            manager.seller_ids),
+          {}, multiple: true, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm",
+          data: { controller: "tom-select", "tom-select-placeholder-value": "Search & select sellers…" } %>
+    <p class="text-[11px] text-slate-400 mt-1">Pick any sellers — across branches — to tag to this manager. A seller can be under several managers (e.g. a supervisor and a branch manager). Grouped sellers appear once (as their primary).</p>
+  </div>
+
   <div class="md:col-span-2 flex items-center gap-3 pt-2">
     <%= f.submit "Save manager", class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-4 py-2 hover:bg-[#17386f] cursor-pointer" %>
     <%= link_to "Cancel", managers_path, class: "text-sm text-slate-600 hover:underline" %>
     <% if manager.persisted? %>
-      <span class="text-xs text-slate-400 ml-auto"><%= manager.sellers.count %> seller<%= "s" unless manager.sellers.count == 1 %> assigned · assign more on each seller's page</span>
+      <span class="text-xs text-slate-400 ml-auto"><%= manager.sellers.count %> seller<%= "s" unless manager.sellers.count == 1 %> tagged</span>
     <% end %>
   </div>
 <% end %>

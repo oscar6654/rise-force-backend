@@ -9,7 +9,10 @@ class Seller < ApplicationRecord
 
   belongs_to :branch
   belongs_to :user, optional: true
-  belongs_to :manager, optional: true # field manager who oversees this seller
+  # Field managers who oversee this seller (many-to-many; a seller may report to
+  # both a supervisor and a branch manager).
+  has_many :manager_sellers, dependent: :destroy
+  has_many :managers, through: :manager_sellers
   # Login group: extra seller records (2nd branch / 2nd vcsi rep code) point to a
   # primary so one login sees them all combined. Each keeps its own rep + syncs.
   belongs_to :primary_seller, class_name: "Seller", optional: true

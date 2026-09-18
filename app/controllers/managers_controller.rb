@@ -40,7 +40,7 @@ class ManagersController < ApplicationController
   end
 
   def manager_params
-    permitted = params.require(:manager).permit(:code, :name, :branch_id, :status, :pin)
+    permitted = params.require(:manager).permit(:code, :name, :branch_id, :status, :pin, seller_ids: [])
     permitted.delete(:pin) if permitted[:pin].blank? # blank -> keep existing PIN
     permitted
   end

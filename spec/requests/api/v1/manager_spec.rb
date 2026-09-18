@@ -3,12 +3,15 @@ require "rails_helper"
 RSpec.describe "Manager app views", type: :request do
   let(:branch)  { create(:branch) }
   let(:manager) { Manager.create!(code: "MGR1", name: "Nora Manager", branch: branch) }
-  let(:s1) { create(:seller, branch: branch, name: "Seller One", manager: manager) }
-  let(:s2) { create(:seller, branch: branch, name: "Seller Two", manager: manager) }
+  let(:s1) { create(:seller, branch: branch, name: "Seller One") }
+  let(:s2) { create(:seller, branch: branch, name: "Seller Two") }
   let(:store1) { create(:store, branch: branch, seller: s1, vcsi_customer_ref: "C1") }
   let(:month)  { Date.current.beginning_of_month }
 
-  before { manager.update!(pin: "9999") }
+  before do
+    manager.update!(pin: "9999")
+    manager.sellers << [s1, s2] # tag the sellers to this manager (many-to-many)
+  end
 
   def login(code, pin)
     post "/api/v1/auth/login", params: { seller_code: code, pin: pin, device_id: "m-#{code}" }, as: :json
@@ -43,6 +46,14 @@ RSpec.describe "Manager app views", type: :request do
     d = JSON.parse(response.body)["data"]
     expect(d["seller"]["name"]).to eq("Seller One")
     expect(d["stores"].map { |s| s["store_id"] }).to include(store1.id)
+  end
+
+  it "lets a seller sit under multiple managers" do
+    other = Manager.create!(code: "MGR2", name: "Branch Boss")
+    other.sellers << s1
+    expect(s1.reload.managers.map(&:code)).to contain_exactly("MGR1", "MGR2")
+    expect(other.sellers).to include(s1)
+    expect(manager.sellers).to include(s1) # still under the first too
   end
 
   it "cannot see a seller outside the manager's team" do

@@ -3,7 +3,10 @@ class Manager < ApplicationRecord
   has_secure_password :pin, validations: false
 
   belongs_to :branch, optional: true
-  has_many :sellers, dependent: :nullify
+  # A manager is tagged to a chosen set of sellers (many-to-many); a seller can
+  # sit under several managers (a supervisor AND a branch manager).
+  has_many :manager_sellers, dependent: :destroy
+  has_many :sellers, through: :manager_sellers
 
   enum :status, { active: 0, inactive: 1 }, default: :active
 

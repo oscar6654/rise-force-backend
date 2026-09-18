@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_18_120001) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_18_130001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -182,6 +182,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_120001) do
     t.index ["created_at"], name: "index_job_logs_on_created_at"
     t.index ["job_type", "status"], name: "index_job_logs_on_job_type_and_status"
     t.index ["triggered_by_id"], name: "index_job_logs_on_triggered_by_id"
+  end
+
+  create_table "manager_sellers", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "manager_id", null: false
+    t.bigint "seller_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["manager_id", "seller_id"], name: "index_manager_sellers_on_manager_id_and_seller_id", unique: true
+    t.index ["manager_id"], name: "index_manager_sellers_on_manager_id"
+    t.index ["seller_id"], name: "index_manager_sellers_on_seller_id"
   end
 
   create_table "managers", force: :cascade do |t|
@@ -520,7 +530,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_120001) do
     t.string "diser_pin_digest"
     t.string "gsm_name"
     t.datetime "last_sync_at"
-    t.bigint "manager_id"
     t.string "name", null: false
     t.string "om_name"
     t.string "pin_digest"
@@ -536,7 +545,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_120001) do
     t.index ["branch_id", "status"], name: "index_sellers_on_branch_id_and_status"
     t.index ["branch_id"], name: "index_sellers_on_branch_id"
     t.index ["diser_code"], name: "index_sellers_on_diser_code", unique: true, where: "(diser_code IS NOT NULL)"
-    t.index ["manager_id"], name: "index_sellers_on_manager_id"
     t.index ["primary_seller_id"], name: "index_sellers_on_primary_seller_id"
     t.index ["seller_code"], name: "index_sellers_on_seller_code", unique: true
     t.index ["user_id"], name: "index_sellers_on_user_id"
@@ -842,6 +850,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_120001) do
   add_foreign_key "device_tokens", "sellers"
   add_foreign_key "incentive_schemes", "branches"
   add_foreign_key "job_logs", "users", column: "triggered_by_id"
+  add_foreign_key "manager_sellers", "managers"
+  add_foreign_key "manager_sellers", "sellers"
   add_foreign_key "managers", "branches"
   add_foreign_key "order_batches", "branches"
   add_foreign_key "order_batches", "sellers"
@@ -883,7 +893,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_120001) do
   add_foreign_key "seller_targets", "branches"
   add_foreign_key "seller_targets", "sellers"
   add_foreign_key "sellers", "branches"
-  add_foreign_key "sellers", "managers"
   add_foreign_key "sellers", "sellers", column: "primary_seller_id"
   add_foreign_key "sellers", "users"
   add_foreign_key "sellout_snapshots", "branches"

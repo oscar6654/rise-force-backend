@@ -62,12 +62,12 @@
       <%= f.text_field :vcsi_sales_rep_ref, placeholder: "e.g. 538614", class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
       <p class="text-[11px] text-slate-400 mt-1">Join key to vcsi_rise sellout & targets (sales_rep code).</p>
     </div>
-    <div>
-      <%= f.label :manager_id, "Field manager (app team view)", class: "block text-sm font-medium text-slate-700 mb-1" %>
-      <%= f.collection_select :manager_id, Manager.active.order(:name), :id, :name, { include_blank: "— none —" },
-            class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm", data: { controller: "tom-select", "tom-select-placeholder-value": "Search managers…" } %>
-      <p class="text-[11px] text-slate-400 mt-1">Assigns this seller to a manager's mobile team view. <%= link_to "Manage managers", managers_path, class: "text-[#1f4b99] hover:underline" %>.</p>
-    </div>
+    <% if f.object.persisted? && f.object.managers.any? %>
+      <div class="md:col-span-2 text-xs text-slate-500">
+        Field managers overseeing this seller: <span class="font-medium text-slate-700"><%= f.object.managers.map(&:name).join(", ") %></span>
+        (assign on the <%= link_to "managers page", managers_path, class: "text-[#1f4b99] hover:underline" %>).
+      </div>
+    <% end %>
     <div>
       <%= f.label :user_id, "Assigned console user", class: "block text-sm font-medium text-slate-700 mb-1" %>
       <%= f.collection_select :user_id, User.order(:first_name), :id, :full_name, { include_blank: "— none —" },
