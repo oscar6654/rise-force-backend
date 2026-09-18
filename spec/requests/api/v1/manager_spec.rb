@@ -56,6 +56,26 @@ RSpec.describe "Manager app views", type: :request do
     expect(manager.sellers).to include(s1) # still under the first too
   end
 
+  it "includes per-type assortment on the seller view + a store-detail endpoint" do
+    store1
+    token = login("MGR1", "9999")["access_token"]
+    hdr = { "Authorization" => "Bearer #{token}" }
+
+    get "/api/v1/manager/sellers/#{s1.id}", headers: hdr
+    expect(JSON.parse(response.body)["data"]).to have_key("assortment")
+
+    get "/api/v1/manager/stores/#{store1.id}", headers: hdr
+    sd = JSON.parse(response.body)["data"]
+    expect(sd["store"]["store_id"]).to eq(store1.id)
+    expect(sd["store"]).to have_key("attainment_pct")
+    expect(sd).to have_key("assortment")
+
+    # a store outside the manager's team is forbidden
+    outside = create(:store, branch: create(:branch))
+    get "/api/v1/manager/stores/#{outside.id}", headers: hdr
+    expect(response).to have_http_status(:unauthorized)
+  end
+
   it "cannot see a seller outside the manager's team" do
     other = create(:seller, branch: branch)
     token = login("MGR1", "9999")["access_token"]

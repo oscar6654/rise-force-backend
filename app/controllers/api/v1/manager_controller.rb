@@ -23,14 +23,66 @@ module Api
         render json: { data: { manager: { name: current_manager.name }, period: month, totals: totals, sellers: rows }, meta: meta }
       end
 
-      # GET /api/v1/manager/sellers/:id  → that seller's store-by-store performance.
+      # GET /api/v1/manager/sellers/:id  → that seller's KPIs, per-assortment-type
+      # rollup, and store-by-store performance.
       def seller
         s = current_manager.sellers.find(params[:id])
         month = Date.current.beginning_of_month
-        render json: { data: { seller: seller_kpi(s, month), stores: store_perf(s.login_group_ids, month) }, meta: meta }
+        ids = s.login_group_ids
+        render json: { data: {
+          seller: seller_kpi(s, month),
+          assortment: seller_assortment_by_type(ids),
+          stores: store_perf(ids, month),
+        }, meta: meta }
+      end
+
+      # GET /api/v1/manager/stores/:id  → one store: target/attainment + per-type
+      # assortment. Authorised to the manager's team stores only.
+      def store
+        store = Store.find(params[:id])
+        return render_unauthorized unless team_store_ids.include?(store.id)
+
+        month = Date.current.beginning_of_month
+        render json: { data: {
+          store: {
+            store_id: store.id, name: store.name, code: store.code, branch: store.branch&.name,
+            channel: store.channel&.name, category: store.category_letter,
+            target_amount: store.target_for(month), confirmed_actual: store.confirmed_actual(month),
+            presell_pending: store.pending_presell(month), blended_actual: store.blended_actual(month),
+            attainment_pct: store.attainment_pct(month), active: store.active_in_vcsi?(month),
+            last_stock_checked_on: store.last_stock_checked_at&.to_date,
+          },
+          assortment: store.assortment_by_type,
+        }, meta: meta }
       end
 
       private
+
+      def group_stores(ids)
+        Store.where(seller_id: ids)
+             .or(Store.where(route_id: Route.where(seller_id: ids).select(:id)))
+             .where.not(vcsi_customer_ref: [nil, ''])
+      end
+
+      def team_store_ids
+        @team_store_ids ||= group_stores(current_manager.team_seller_ids).pluck(:id).to_set
+      end
+
+      # Pool each store's per-type compliance across the seller's (group's) stores.
+      def seller_assortment_by_type(ids)
+        agg = {}
+        group_stores(ids).includes(:store_category).limit(300).find_each do |s|
+          s.assortment_by_type.each do |row|
+            a = (agg[row[:type_code]] ||= { type_name: row[:type_name], must: 0, carried: 0 })
+            a[:must] += row[:must]
+            a[:carried] += row[:carried]
+          end
+        end
+        agg.map do |code, a|
+          { type_code: code, type_name: a[:type_name], must: a[:must], carried: a[:carried],
+            pct: (a[:must].positive? ? (a[:carried] * 100.0 / a[:must]).round : 0) }
+        end
+      end
 
       def seller_kpi(s, month)
         ids = s.login_group_ids

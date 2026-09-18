@@ -144,6 +144,22 @@ class Store < ApplicationRecord
     }
   end
 
+  # Per-assortment-type compliance for this store in one pass (carried computed
+  # once, then intersected with each type's must-stock). Returns an array of
+  # { type_code, type_name, must, carried, pct } for types that have must-stock.
+  def assortment_by_type(since: 90.days.ago)
+    carried = carried_dist_keys(since: since)
+    AssortmentType.enabled.ordered.filter_map do |t|
+      must = must_stock_products(type_code: t.code)
+      next if must.empty?
+
+      by_key = must.sort_by { |id, _bc, cc| [-(cc || 0), id] }.group_by { |id, bc, _cc| dist_key(bc, id) }
+      carried_count = by_key.keys.count { |k| carried.include?(k) }
+      { type_code: t.code, type_name: t.name, must: by_key.size, carried: carried_count,
+        pct: (carried_count * 100.0 / by_key.size).round }
+    end
+  end
+
   def category
     store_category&.code
   end
