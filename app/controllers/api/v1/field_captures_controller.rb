@@ -3,6 +3,9 @@ module Api
     # Idempotent (client_uuid) uploads for in-store capture: shelf stock counts,
     # competitor price checks, and planogram-compliance photos.
     class FieldCapturesController < BaseController
+      # A diser does stock counts only — not competitor prices or planogram photos.
+      before_action :deny_diser!, only: [:competitor_checks, :visit_photos]
+
       # POST /api/v1/stock_counts
       #   Seller flow: { visit_client_uuid|visit_id, counts:[{client_uuid, product_id, qty}] }
       #     — a count is unique per (visit, product): re-counting UPDATES it.

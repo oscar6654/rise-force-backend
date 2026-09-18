@@ -36,6 +36,18 @@ class Seller < ApplicationRecord
 
   validates :seller_code, presence: true, uniqueness: { case_sensitive: false }
   validates :name, presence: true
+  # A diser code must be distinct from every seller code — otherwise the login
+  # resolves to the SELLER (seller_code is matched first) and the diser gets the
+  # full app instead of the stock-check-only view.
+  validate :diser_code_not_a_seller_code
+
+  def diser_code_not_a_seller_code
+    return if diser_code.blank?
+
+    clash = seller_code.to_s.casecmp?(diser_code) ||
+            Seller.where.not(id: id).where("lower(seller_code) = ?", diser_code.downcase).exists?
+    errors.add(:diser_code, "must be different from every seller code") if clash
+  end
 
   has_many :seller_targets, dependent: :destroy
   has_many :seller_daily_stats, dependent: :destroy

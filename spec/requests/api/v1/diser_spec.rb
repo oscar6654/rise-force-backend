@@ -56,6 +56,16 @@ RSpec.describe "Diser login + visitless stock counts", type: :request do
     expect(StoreInventoryEstimator.new(store).rows.map(&:product_id)).to include(product.id)
   end
 
+  it "is blocked server-side from placing an order (even from a stale app)" do
+    token = login("DSR9", "4321")["access_token"]
+    post "/api/v1/orders",
+         params: { client_uuid: SecureRandom.uuid, store_id: store.id,
+                   lines: [{ product_id: product.id, quantity: 1, uom: "case" }] },
+         headers: { "Authorization" => "Bearer #{token}" }, as: :json
+    expect(response).to have_http_status(:unauthorized)
+    expect(Order.count).to eq(0)
+  end
+
   it "cannot count a store outside the seller's coverage" do
     other = create(:store, branch: create(:branch))
     token = login("DSR9", "4321")["access_token"]

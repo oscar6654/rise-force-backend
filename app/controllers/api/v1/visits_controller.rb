@@ -1,6 +1,8 @@
 module Api
   module V1
     class VisitsController < BaseController
+      before_action :deny_diser! # a diser never checks in / logs a visit (no coverage)
+
       # POST /api/v1/visits/checkin
       # { client_uuid, store_id, route_id?, checkin_lat, checkin_lng, started_at, planned_visit_id? }
       def checkin

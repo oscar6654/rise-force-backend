@@ -1,6 +1,9 @@
 module Api
   module V1
     class OrdersController < BaseController
+      # A diser (stock-check-only role) may never take or preview orders.
+      before_action :deny_diser!, only: [:create, :preview]
+
       # POST /api/v1/orders/preview
       # Same body as create, but computes price + earned promo lines + totals +
       # threshold nudges WITHOUT saving — so the app can show the deal live as

@@ -1,6 +1,8 @@
 module Api
   module V1
     class StoreRegistrationsController < BaseController
+      before_action :deny_diser! # a diser only does stock checks, not registrations
+
       # POST /api/v1/store_registrations (multipart)
       # { client_uuid, name, owner_name, address, latitude, longitude,
       #   channel_id, contact_number, storefront_photo? }
