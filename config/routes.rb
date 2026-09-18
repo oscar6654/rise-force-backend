@@ -4,6 +4,14 @@ Rails.application.routes.draw do
   # Health check for load balancers / uptime monitors.
   get "up" => "rails/health#show", as: :rails_health_check
 
+  # Public, no-login pages (App Store / Play Store review + users)
+  get "legal"           => "public#index"
+  get "privacy"         => "public#privacy"
+  get "terms"           => "public#terms"
+  get "support"         => "public#support"
+  get "data-deletion"   => "public#data_deletion", as: :data_deletion
+  get "account-deletion" => redirect("/data-deletion")
+
   # ---- Backend console ----
   root "dashboard#index"
 

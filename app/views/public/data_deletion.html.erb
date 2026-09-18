@@ -1,0 +1,24 @@
+<% content_for :title, "Data & Account Deletion · #{cfg[:app]}" %>
+<h1>Data &amp; Account Deletion</h1>
+<p class="muted">Effective <%= cfg[:effective] %></p>
+
+<p><%= cfg[:app] %> accounts are issued and managed by <%= cfg[:company] %> for authorized staff; there is no public self-registration. You can request that your account and associated personal data be deactivated and deleted.</p>
+
+<h2>How to request deletion</h2>
+<ol>
+  <li>Email <a href="mailto:<%= cfg[:email] %>?subject=Account%20deletion%20request"><%= cfg[:email] %></a> from your contact on file, or ask your administrator/supervisor, with your staff code and name.</li>
+  <li>We verify the request with your organization.</li>
+  <li>We deactivate the login and delete or anonymize the associated personal data within 30 days, unless we are required to retain certain records by law or for legitimate business/audit purposes.</li>
+</ol>
+
+<h2>What is deleted</h2>
+<ul>
+  <li>Your login credentials and device association (you can no longer sign in).</li>
+  <li>Personal identifiers tied to you, and captured photos and location check-in points attributable to you.</li>
+</ul>
+
+<h2>What may be retained</h2>
+<p>Business transaction records (e.g. orders and invoices) and aggregated, de-identified figures may be retained for accounting, tax, and audit obligations, as permitted by law. These no longer identify you.</p>
+
+<h2>Contact</h2>
+<p>Email: <a href="mailto:<%= cfg[:email] %>"><%= cfg[:email] %></a><% if cfg[:phone].present? %> · <%= cfg[:phone] %><% end %></p>

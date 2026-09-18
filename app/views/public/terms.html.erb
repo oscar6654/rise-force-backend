@@ -1,0 +1,21 @@
+<% content_for :title, "Terms of Use · #{cfg[:app]}" %>
+<h1>Terms of Use</h1>
+<p class="muted">Effective <%= cfg[:effective] %></p>
+
+<p><%= cfg[:app] %> is a private business tool provided by <%= cfg[:company] %> to its authorized staff. By using the App you agree to these terms.</p>
+
+<h2>Authorized use</h2>
+<ul>
+  <li>The App is for authorized employees and contractors only, using credentials issued by us.</li>
+  <li>Keep your credentials confidential and use the App only for your assigned work.</li>
+  <li>Do not attempt to access data outside your assignment, reverse-engineer, or disrupt the service.</li>
+</ul>
+
+<h2>Data</h2>
+<p>Information entered or captured in the App (orders, stock counts, photos, store data, check-ins) is our business data. Use it only for legitimate work purposes and in line with our <%= link_to "Privacy Policy", privacy_path %>.</p>
+
+<h2>Availability &amp; changes</h2>
+<p>The App is provided "as is" for internal operations. We may modify, suspend, or discontinue features at any time. We may update these terms; continued use means acceptance.</p>
+
+<h2>Contact</h2>
+<p>Email: <a href="mailto:<%= cfg[:email] %>"><%= cfg[:email] %></a></p>

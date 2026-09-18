@@ -1,0 +1,44 @@
+<% content_for :title, "Privacy Policy · #{cfg[:app]}" %>
+<h1>Privacy Policy</h1>
+<p class="muted">Effective <%= cfg[:effective] %></p>
+
+<p><%= cfg[:app] %> ("the App") is a private business application provided by <%= cfg[:company] %> ("we", "us") to its authorized field-sales employees and merchandising staff. The App is a work tool used to plan store visits, take pre-sell orders, count shelf stock, and record store information. It is not intended for the general public and is not directed to children.</p>
+
+<h2>Information we process</h2>
+<ul>
+  <li><strong>Account &amp; identity:</strong> the staff code (seller, diser, or manager code) and name issued by us, and a device identifier used to keep you signed in. Accounts are created and managed by us — the App has no public sign-up.</li>
+  <li><strong>Location:</strong> your device location <em>only</em> at the moment you check in at a store, to record the visit and flag any mismatch with the store's registered location. Location is used <strong>only while you are using the App</strong>; the App does not track your location in the background.</li>
+  <li><strong>Photos:</strong> photos you capture or attach during a visit (e.g. storefront, planogram, competitor shelf).</li>
+  <li><strong>Work activity you enter:</strong> stock counts, orders, competitor prices, store details, and visit notes.</li>
+  <li><strong>Barcode scans:</strong> product barcodes you scan by camera or Bluetooth scanner, used only to look up the matching product.</li>
+</ul>
+
+<h2>How we use it</h2>
+<p>Solely to operate the field-sales workflow on our behalf — route planning, order taking, stock and distribution tracking, and performance reporting for your managers. This is company data collected in the course of your work.</p>
+
+<h2>What we do NOT do</h2>
+<ul>
+  <li>No advertising, no ad networks, and no sale or sharing of data with data brokers.</li>
+  <li>No third-party analytics or tracking SDKs, and no cross-app/website tracking.</li>
+  <li>No push notifications.</li>
+  <li>No use of your data for any purpose unrelated to your work.</li>
+</ul>
+
+<h2>Sharing</h2>
+<p>Data is stored on our own servers and shared only with our order-processing/ERP system to fulfil invoices, and with our hosting/cloud storage providers who process it on our behalf under contract. We may disclose information if required by law.</p>
+
+<h2>Retention &amp; security</h2>
+<p>Data is retained for as long as needed for our business and record-keeping obligations, then deleted or anonymized. Data is transmitted over encrypted connections (HTTPS/TLS) and access is restricted to authorized personnel.</p>
+
+<h2>Your choices &amp; deletion</h2>
+<p>Because accounts are issued by us for work purposes, requests to access, correct, or delete data are handled through your administrator. See <%= link_to "Data &amp; account deletion".html_safe, data_deletion_path %>.</p>
+
+<h2>Changes</h2>
+<p>We may update this policy; the effective date above will change accordingly.</p>
+
+<h2>Contact</h2>
+<p>
+  <%= cfg[:company] %><br>
+  <% if cfg[:address].present? %><%= cfg[:address] %><br><% end %>
+  Email: <a href="mailto:<%= cfg[:email] %>"><%= cfg[:email] %></a><% if cfg[:phone].present? %> · <%= cfg[:phone] %><% end %>
+</p>

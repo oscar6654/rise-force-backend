@@ -1,0 +1,11 @@
+<% content_for :title, "Legal & Support · #{cfg[:app]}" %>
+<h1>Legal &amp; Support</h1>
+<p>Public information for <%= cfg[:app] %>, a private field-sales tool by <%= cfg[:company] %>.</p>
+<div class="card">
+  <p style="margin:0">
+    <%= link_to "Privacy Policy", privacy_path %><br>
+    <%= link_to "Terms of Use", terms_path %><br>
+    <%= link_to "Support", support_path %><br>
+    <%= link_to "Data &amp; account deletion".html_safe, data_deletion_path %>
+  </p>
+</div>

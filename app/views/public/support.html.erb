@@ -1,0 +1,17 @@
+<% content_for :title, "Support · #{cfg[:app]}" %>
+<h1>Support</h1>
+
+<p>Need help with <%= cfg[:app] %>? Support is provided by <%= cfg[:company] %> for authorized staff.</p>
+
+<div class="card">
+  <p style="margin:0"><strong>Email:</strong> <a href="mailto:<%= cfg[:email] %>"><%= cfg[:email] %></a>
+  <% if cfg[:phone].present? %><br><strong>Phone:</strong> <%= cfg[:phone] %><% end %>
+  <% if cfg[:address].present? %><br><strong>Address:</strong> <%= cfg[:address] %><% end %></p>
+</div>
+
+<h2>Common questions</h2>
+<ul>
+  <li><strong>Can't sign in?</strong> Confirm your staff code and PIN with your administrator, and that the server address in the app is correct.</li>
+  <li><strong>Location or camera prompt?</strong> The app asks for location only when you check in, and for the camera to scan barcodes and take store photos. You can manage these in your phone's Settings.</li>
+  <li><strong>Delete my data?</strong> See <%= link_to "Data &amp; account deletion".html_safe, data_deletion_path %>.</li>
+</ul>
