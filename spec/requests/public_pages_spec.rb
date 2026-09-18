@@ -6,6 +6,8 @@ RSpec.describe "Public legal/support pages", type: :request do
     expect(response).to have_http_status(:ok)
     expect(response.body).to include("Privacy Policy")
     expect(response.body).to include("No push notifications")
+    expect(response.body).to include("VALUESALES, INC.")
+    expect(response.body).to include("info@valuesalesinc.com")
   end
 
   it "serves terms, support, data-deletion, and the legal index" do

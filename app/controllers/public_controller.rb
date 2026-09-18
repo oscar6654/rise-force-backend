@@ -16,9 +16,9 @@ class PublicController < ActionController::Base
 
   def cfg
     @cfg ||= {
-      company: SystemSetting.get("company_legal_name", "the Company"),
+      company: SystemSetting.get("company_legal_name", "VALUESALES, INC."),
       app: SystemSetting.get("app_display_name", "Rise Force"),
-      email: SystemSetting.get("privacy_contact_email", "support@example.com"),
+      email: SystemSetting.get("privacy_contact_email", "info@valuesalesinc.com"),
       phone: SystemSetting.get("privacy_contact_phone", ""),
       address: SystemSetting.get("company_address", ""),
       effective: SystemSetting.get("privacy_effective_date", Date.current.strftime("%B %-d, %Y")),
