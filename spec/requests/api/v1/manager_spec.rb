@@ -76,6 +76,29 @@ RSpec.describe "Manager app views", type: :request do
     expect(response).to have_http_status(:unauthorized)
   end
 
+  it "serves live deep insights (daily trend + top products + category)" do
+    s1.update!(vcsi_sales_rep_ref: "REP1")
+    create(:product, it_barcode: "B1", description: "Ariel 66g", case_cost: 100)
+    client = instance_double(VcsiRise::Client)
+    allow(VcsiRise::Client).to receive(:new).and_return(client)
+    allow(client).to receive(:sales_daily)
+      .and_return([{ "date" => "#{Date.current.strftime('%Y-%m')}-02", "amount" => "1500.0", "pieces" => "12" }])
+    allow(client).to receive(:store_sku_sellout)
+      .and_return([{ "customer_id" => "C1", "it_barcode" => "B1", "amount" => "500.0", "pieces" => "5" }])
+
+    token = login("MGR1", "9999")["access_token"]
+    get "/api/v1/manager/insights", headers: { "Authorization" => "Bearer #{token}" }
+    d = JSON.parse(response.body)["data"]
+    expect(d["daily"]["this_month"].first["amount"]).to eq(1500.0)
+    expect(d["top_products"].first["description"]).to eq("Ariel 66g")
+    expect(d["by_category"]).to be_an(Array)
+    expect(d["confirmed_total"]).to eq(500.0)
+
+    # Month-picker: ?month=YYYY-MM looks back at a prior month.
+    get "/api/v1/manager/insights", params: { month: "2026-07" }, headers: { "Authorization" => "Bearer #{token}" }
+    expect(JSON.parse(response.body)["data"]["period"]).to eq("2026-07")
+  end
+
   it "cannot see a seller outside the manager's team" do
     other = create(:seller, branch: branch)
     token = login("MGR1", "9999")["access_token"]

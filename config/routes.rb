@@ -117,8 +117,11 @@ Rails.application.routes.draw do
 
       # Field-manager app views
       get "manager/team"          => "manager#team"
+      get "manager/insights"      => "manager#insights"
       get "manager/sellers/:id"   => "manager#seller"
+      get "manager/sellers/:id/insights" => "manager#seller_insights"
       get "manager/stores/:id"    => "manager#store"
+      get "manager/stores/:id/insights"  => "manager#store_insights"
 
       resources :store_registrations, only: [:create, :index]
 

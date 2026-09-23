@@ -90,7 +90,21 @@ module VcsiRise
     def store_sku_sellout(month: Date.current.beginning_of_month, sales_rep: nil)
       path = SystemSetting.get("vcsi_store_sku_sellout_path", "/api/v1/sfa/store_sku_sellout")
       params = { month: month.strftime("%Y-%m") }
-      params[:sales_rep] = sales_rep if sales_rep.present?
+      params[:sales_rep] = Array(sales_rep).join(",") if sales_rep.present?
+      Array(get_json(path, params)["data"])
+    rescue StandardError
+      []
+    end
+
+    # Daily confirmed sellout for a month — powers the manager app's sales-trend
+    # chart. Scope by sales_rep (one code or a comma-joined list for a team) and/
+    # or customer_id (one store). Rows: { date: "YYYY-MM-DD", pieces, amount }.
+    # Optional endpoint — an undeployed path / any error yields [].
+    def sales_daily(month: Date.current.beginning_of_month, sales_rep: nil, customer_id: nil)
+      path = SystemSetting.get("vcsi_sales_daily_path", "/api/v1/sfa/sales_daily")
+      params = { month: month.strftime("%Y-%m") }
+      params[:sales_rep] = Array(sales_rep).join(",") if sales_rep.present?
+      params[:customer_id] = customer_id if customer_id.present?
       Array(get_json(path, params)["data"])
     rescue StandardError
       []

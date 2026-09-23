@@ -56,7 +56,54 @@ module Api
         }, meta: meta }
       end
 
+      # GET /api/v1/manager/insights          → team-wide deep analytics (live)
+      def insights
+        reps = team_rep_codes(current_manager.team_seller_ids)
+        render json: { data: cached_insights("team-#{current_manager.id}", reps: reps), meta: meta }
+      end
+
+      # GET /api/v1/manager/sellers/:id/insights
+      def seller_insights
+        s = current_manager.sellers.find(params[:id])
+        reps = team_rep_codes(s.login_group_ids)
+        render json: { data: cached_insights("seller-#{s.id}", reps: reps), meta: meta }
+      end
+
+      # GET /api/v1/manager/stores/:id/insights
+      def store_insights
+        store = Store.find(params[:id])
+        return render_unauthorized unless team_store_ids.include?(store.id)
+
+        reps = team_rep_codes([store.assigned_seller&.id].compact)
+        render json: { data: cached_insights("store-#{store.id}", reps: reps, customer_id: store.vcsi_customer_ref), meta: meta }
+      end
+
       private
+
+      def team_rep_codes(seller_ids)
+        Seller.where(id: seller_ids).where.not(vcsi_sales_rep_ref: [nil, ""]).distinct.pluck(:vcsi_sales_rep_ref)
+      end
+
+      # The month to report on — ?month=YYYY-MM (default current). Lets managers
+      # look back at prior months.
+      def report_month
+        m = params[:month].to_s
+        return Date.parse("#{m}-01") if m.match?(/\A\d{4}-\d{2}\z/)
+
+        Date.current.beginning_of_month
+      rescue ArgumentError
+        Date.current.beginning_of_month
+      end
+
+      # Live vcsi pass-through is cached briefly so repeated taps don't hammer the
+      # ERP; keyed to the reported month.
+      def cached_insights(key, reps:, customer_id: nil)
+        month = report_month
+        ttl = SystemSetting.get("manager_insights_cache_seconds", 300).to_i
+        Rails.cache.fetch("mgr_insights/#{key}/#{month.strftime('%Y%m')}", expires_in: ttl.seconds) do
+          ManagerInsights.new(rep_codes: reps, customer_id: customer_id, month: month).call
+        end
+      end
 
       def group_stores(ids)
         Store.where(seller_id: ids)
