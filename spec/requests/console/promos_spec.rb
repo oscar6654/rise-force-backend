@@ -28,6 +28,30 @@ RSpec.describe "Promos console", type: :request do
     expect(promo.config["tiers"]).to eq([{ "min" => 18.0, "rate" => 0.04 }, { "min" => 72.0, "rate" => 0.07 }])
   end
 
+  it "renders the combo editor and creates a combo_percent promo from the form" do
+    a = create(:product, sku: "CA", it_barcode: "7770001")
+    b = create(:product, sku: "CB", it_barcode: "7770002")
+
+    get new_promo_path
+    expect(response.body).to include('data-mechanics="combo_percent"')
+    expect(response.body).to include("promo[config_rate]")
+
+    post promos_path, params: {
+      promo: {
+        code: "UI-COMBO", name: "UI Combo", mechanic_type: "combo_percent", status: "active",
+        config_rate: "10", # percent -> stored as 0.10
+        promo_lines_attributes: {
+          "0" => { role: "qualifying", it_barcode: "7770001", min_qty: "24" },
+          "1" => { role: "qualifying", it_barcode: "7770002", min_qty: "12" },
+        },
+      },
+    }
+    expect(response).to have_http_status(:redirect)
+    promo = Promo.find_by(code: "UI-COMBO")
+    expect(promo.config["rate"]).to eq(0.10)
+    expect(promo.promo_lines.where(role: :qualifying).pluck(:it_barcode, :min_qty)).to contain_exactly(["7770001", 24], ["7770002", 12])
+  end
+
   it "serves an example CSV that imports without edits (round-trip)" do
     create(:product, sku: "S1", it_barcode: "4800016641")
     create(:product, sku: "S2", it_barcode: "4801234567")
@@ -41,8 +65,8 @@ RSpec.describe "Promos console", type: :request do
 
     log = Import::PromosImporter.new(response.body, user: user, filename: "e.csv").call
     expect(log.error_count).to eq(0)
-    expect(Promo.count).to eq(9) # one example row per mechanic + a multi-channel spend deal
-    expect(Promo.distinct.pluck(:mechanic_type)).to include("bundle_price", "free_goods", "discount_percent")
+    expect(Promo.count).to eq(10) # one example row per mechanic + a multi-channel spend + combo
+    expect(Promo.distinct.pluck(:mechanic_type)).to include("bundle_price", "free_goods", "discount_percent", "combo_percent")
     # the multi-channel example (channel_code "AAA;BBB") becomes two eligibility rows
     expect(Promo.find_by(code: "HFSWS-SPEND").promo_eligibilities.map { |e| e.channel.code }).to contain_exactly("AAA", "BBB")
   end

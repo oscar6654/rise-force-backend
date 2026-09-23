@@ -55,6 +55,11 @@ class PromoEngine
         d = apply_bundle(promo, by_product)
         promo_total += d
         record_saving(savings_by_promo, promo, d)
+      when 'combo_percent'
+        d, n = apply_combo(promo, by_product)
+        promo_total += d
+        nudges.concat(n)
+        record_saving(savings_by_promo, promo, d)
       end
     end
 
@@ -203,6 +208,40 @@ class PromoEngine
       end
     end
     total
+  end
+
+  # Combo: buy SPECIFIC items, each at its own minimum pieces → X% off those
+  # items (ex-VAT). Applies only when EVERY qualifying item meets its minimum.
+  # Returns [discount, nudges]; nudges the shortfall once the seller has started.
+  def apply_combo(promo, by_product)
+    qualifying = promo.promo_lines.select(&:role_qualifying?)
+    rate = promo.combo_rate
+    return [0.to_d, []] if qualifying.empty? || !rate.positive?
+
+    shortfalls = []
+    qualifying.each do |q|
+      min = q.min_qty.to_i
+      next if min <= 0
+
+      have = line_product_ids(q).sum { |pid| pieces_of(by_product[pid], Product.find_by(id: pid)) }
+      shortfalls << { need: min - have, product: line_rep_product(q) } if have < min
+    end
+
+    if shortfalls.any?
+      # Only nudge once they've added at least one of the combo's items.
+      started = qualifying.any? { |q| line_product_ids(q).any? { |pid| (by_product[pid] || []).any? } }
+      return [0.to_d, []] unless started
+
+      parts = shortfalls.map { |s| "#{s[:need]} pc #{s[:product]&.description}" }.join(', ')
+      return [0.to_d, [{ promo_id: promo.id, promo: promo.name,
+                         text: "Add #{parts} → #{(rate * 100).to_i}% off the set" }]]
+    end
+
+    # X% off the ex-VAT total of the qualifying items actually in the cart.
+    base = qualifying.flat_map { |q| line_product_ids(q) }.uniq.sum do |pid|
+      (by_product[pid] || []).sum(&:line_total)
+    end
+    [(base * rate).round(2), []]
   end
 
   # Bundle price: buy min_qty PIECES of the qualifying SKU for a fixed price

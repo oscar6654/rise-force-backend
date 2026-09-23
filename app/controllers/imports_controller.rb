@@ -91,7 +91,7 @@ class ImportsController < ApplicationController
     end
   end
 
-  PROMO_HEADERS = %w[code name mechanic basis it_barcode tiers min_qty reward_qty reward_barcode
+  PROMO_HEADERS = %w[code name mechanic basis it_barcode tiers items min_qty reward_qty reward_barcode
                      discount_rate discount_amount fixed_price channel_code category branch_code
                      start_date end_date per_store_limit status notes].freeze
 
@@ -123,6 +123,9 @@ class ImportsController < ApplicationController
         notes: "4% off 18-71 pcs, 7% off 72+. tiers = min:rate|min:rate (0.04 = 4%)." },
       { code: "VOL-144", name: "4% at 144 pcs", mechanic: "tiered_discount", basis: "pieces", it_barcode: b2, tiers: "144:0.04",
         start_date: sd, end_date: ed, status: "active", notes: "Single threshold: 4% off at 144 pcs or more." },
+      { code: "COMBO-10", name: "Buy set get 10%", mechanic: "combo_percent", items: "#{b1}:24|#{b2}:12", discount_rate: "0.10",
+        channel_code: chan, start_date: sd, end_date: ed, status: "active",
+        notes: "Buy #{b1} >=24pc AND #{b2} >=12pc -> 10% off those items (ex-VAT). items = barcode:minpc|barcode:minpc, discount_rate = 0.10." },
       { code: "SPEND-100-300", name: "Spend and save", mechanic: "tiered_discount", basis: "amount", tiers: "1200:100|3000:300",
         start_date: sd, end_date: ed, status: "active",
         notes: "PHP 100 off >= PHP 1200, PHP 300 off >= PHP 3000. Whole order (no it_barcode). tiers = min:amount." },

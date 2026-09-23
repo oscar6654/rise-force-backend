@@ -11,8 +11,27 @@ class Promo < ApplicationRecord
     # Volume deal: tiers in `config` — {basis: "pieces"|"amount", tiers: [{min, rate}|{min, amount}]}.
     # e.g. "4% off 18-71 pcs, 7% off 72+" or "₱100 off ≥₱1200, ₱300 off ≥₱3000". Qualifying
     # SKUs come from role:qualifying promo_lines (empty = whole order, amount basis).
-    tiered_discount: 5
+    tiered_discount: 5,
+    # Combo: buy SPECIFIC items, EACH at its own minimum pieces (role:qualifying
+    # promo_lines with min_qty) → X% off those items (ex-VAT). Rate in
+    # config["rate"] (0.10 = 10%). All items must meet their min for it to apply.
+    combo_percent: 6
   }
+
+  # X% rate for a combo_percent promo (0.10 = 10%).
+  def combo_rate
+    config&.dig("rate").to_d
+  end
+
+  # Parse the compact combo-items syntax "barcode:minpieces|barcode:minpieces".
+  def self.parse_combo_items(str)
+    str.to_s.split(/[|;]/).filter_map do |part|
+      bc, min = part.split(":").map { |s| s.to_s.strip }
+      next if bc.blank? || min.blank?
+
+      { "barcode" => bc, "min" => min.to_i }
+    end
+  end
 
   # Sorted discount tiers from config (ascending by threshold). Each: {min, rate|amount}.
   def tiers

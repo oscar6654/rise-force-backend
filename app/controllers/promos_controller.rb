@@ -52,12 +52,17 @@ class PromosController < ApplicationController
 
   private
 
-  # Build the tiered-discount config from the form's basis + compact tiers string.
+  # Build mechanic-specific `config` from the form.
   def apply_config(promo)
-    return unless promo.mechanic_type == "tiered_discount"
-
-    basis = params.dig(:promo, :config_basis).presence || "pieces"
-    promo.config = { "basis" => basis, "tiers" => Promo.parse_tiers(params.dig(:promo, :config_tiers), basis) }
+    case promo.mechanic_type
+    when "tiered_discount"
+      basis = params.dig(:promo, :config_basis).presence || "pieces"
+      promo.config = { "basis" => basis, "tiers" => Promo.parse_tiers(params.dig(:promo, :config_tiers), basis) }
+    when "combo_percent"
+      # Field is a percent (10 = 10%); store as a rate (0.10). Combo items are
+      # the qualifying promo_lines (each with its own Min qty, in pieces).
+      promo.config = { "rate" => (params.dig(:promo, :config_rate).to_f / 100.0) }
+    end
   end
 
   # Replace the promo's eligibility from the form (mirrors the CSV upload's

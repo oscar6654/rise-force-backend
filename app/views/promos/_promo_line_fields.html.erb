@@ -8,8 +8,8 @@
     <%= f.select :it_barcode, Product.barcode_options, { include_blank: "—" }, class: "w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm", data: { controller: "tom-select", "tom-select-placeholder-value": "Search by desc or barcode…" } %>
   </div>
   <%# Buy X quantity — threshold mechanics %>
-  <div class="col-span-2" data-mechanics="buy_x_get_y qty_threshold_free_good bundle_price">
-    <label class="block text-[11px] text-slate-500 mb-1">Min qty</label>
+  <div class="col-span-2" data-mechanics="buy_x_get_y qty_threshold_free_good bundle_price combo_percent">
+    <label class="block text-[11px] text-slate-500 mb-1">Min qty (pc)</label>
     <%= f.number_field :min_qty, class: "w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" %>
   </div>
   <%# Get Y quantity — free-good mechanics %>

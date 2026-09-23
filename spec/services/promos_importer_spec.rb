@@ -48,4 +48,26 @@ RSpec.describe Import::PromosImporter do
     log = run("code,name,mechanic,basis,it_barcode,tiers\nBAD,x,tiered_discount,pieces,9999999,18:0.04\nBAD2,x,nope,,,\n")
     expect(log.error_count).to eq(2)
   end
+  it "imports a combo_percent promo (specific items, each min pieces → % off)" do
+    kx = create(:product, sku: "KX", it_barcode: "5551110001", pcs_per_case: 12)
+    ky = create(:product, sku: "KY", it_barcode: "5551110002", pcs_per_case: 12)
+    csv = "code,name,mechanic,items,discount_rate,channel_code\n" \
+          "COMBO10,Buy set get 10%,combo_percent,5551110001:24|5551110002:12,0.10,SARI\n"
+    log = run(csv)
+    expect(log.error_count).to eq(0)
+
+    promo = Promo.find_by(code: "COMBO10")
+    expect(promo.mechanic_type).to eq("combo_percent")
+    expect(promo.config["rate"]).to eq(0.10)
+    lines = promo.promo_lines.where(role: :qualifying).order(:min_qty)
+    expect(lines.map(&:it_barcode)).to contain_exactly("5551110001", "5551110002")
+    expect(lines.map(&:min_qty)).to contain_exactly(12, 24)
+  end
+
+  it "rejects a combo_percent row with an unknown item barcode" do
+    csv = "code,name,mechanic,items,discount_rate\nBAD,Bad combo,combo_percent,9999999999:5,0.10\n"
+    log = run(csv)
+    expect(log.error_count).to eq(1)
+  end
+
 end
