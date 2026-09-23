@@ -43,7 +43,12 @@ class ManagerInsights
 
     {
       period: @month.strftime("%Y-%m"),
-      confirmed_total: by_bc.values.sum { |v| v[:amount] }.round(2),
+      # Headline total must NET returns to match the ERP: the daily feed sums
+      # GIV*1.12 over every line (CN lines are negative), whereas the per-SKU
+      # rows below drop negative-net barcodes (a "carried?" rule) and so would
+      # over-report sellout by the value of those hidden returns. Fall back to
+      # the per-SKU sum only if the daily feed is unavailable (undeployed).
+      confirmed_total: (daily_this.any? ? daily_this.sum { |d| d[:amount] } : by_bc.values.sum { |v| v[:amount] }).round(2),
       daily: { this_month: daily_this, last_month: daily_last },
       top_products: top_products,
       by_category: rank(by_cat),

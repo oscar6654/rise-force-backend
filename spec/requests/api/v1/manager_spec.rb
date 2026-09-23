@@ -92,7 +92,9 @@ RSpec.describe "Manager app views", type: :request do
     expect(d["daily"]["this_month"].first["amount"]).to eq(1500.0)
     expect(d["top_products"].first["description"]).to eq("Ariel 66g")
     expect(d["by_category"]).to be_an(Array)
-    expect(d["confirmed_total"]).to eq(500.0)
+    # Headline total nets returns via the daily feed (matches the ERP), not the
+    # per-SKU rows which drop negative-net barcodes.
+    expect(d["confirmed_total"]).to eq(1500.0)
 
     # Month-picker: ?month=YYYY-MM looks back at a prior month.
     get "/api/v1/manager/insights", params: { month: "2026-07" }, headers: { "Authorization" => "Bearer #{token}" }
