@@ -23,7 +23,6 @@ class ManagerInsights
     by_bc = Hash.new { |h, k| h[k] = { amount: 0.0, pieces: 0.0 } }
     by_cat = Hash.new(0.0)
     by_brand = Hash.new(0.0)
-    by_store = Hash.new(0.0)
     rows.each do |r|
       bc = r["it_barcode"].to_s
       amt = r["amount"].to_f
@@ -32,13 +31,28 @@ class ManagerInsights
       p = prods[bc]
       by_cat[p&.product_category&.name || "Uncategorized"] += amt
       by_brand[p&.brand&.name || "Other"] += amt
-      by_store[r["customer_id"].to_s] += amt
     end
 
+    # Top stores must NET returns (so they reconcile to the headline total), so
+    # build them from the per-store sellout feed rather than the per-SKU rows,
+    # which drop negative-net barcodes. Skipped for a single-store scope.
+    by_store = if @cust
+      {}
+    else
+      @client.store_sellout(month: @month, sales_rep: @reps)
+             .each_with_object(Hash.new(0.0)) { |r, h| h[r["customer_id"].to_s] += r["sellout"].to_f }
+    end
+
+    prod_total = by_bc.values.sum { |v| v[:amount] }
     top_products = by_bc.map do |bc, v|
       p = prods[bc]
+      ppc = p&.pcs_per_case.to_i
       { it_barcode: bc, sku: p&.sku, description: p&.description || bc,
-        amount: v[:amount].round(2), pieces: v[:pieces].round }
+        amount: v[:amount].round(2), pieces: v[:pieces].round,
+        # Amount in cases (pieces ÷ pack size); nil when the pack size is unknown.
+        cases: (ppc.positive? ? (v[:pieces] / ppc).round(1) : nil),
+        # Salience: this SKU's share of total product sellout, as a percent.
+        share: share_of(v[:amount], prod_total) }
     end.sort_by { |x| -x[:amount] }.first(@top)
 
     {
@@ -78,17 +92,24 @@ class ManagerInsights
   end
 
   def rank(hash, limit = @top)
+    total = hash.each_value.select(&:positive?).sum
     hash.reject { |_k, v| v <= 0 }
         .sort_by { |_k, v| -v }
         .first(limit)
-        .map { |name, amount| { name: name, amount: amount.round(2) } }
+        .map { |name, amount| { name: name, amount: amount.round(2), share: share_of(amount, total) } }
   end
 
   def store_rank(by_store, limit = @top)
+    total = by_store.each_value.select(&:positive?).sum
     names = Store.where(vcsi_customer_ref: by_store.keys).pluck(:vcsi_customer_ref, :name).to_h
     by_store.reject { |_k, v| v <= 0 }
             .sort_by { |_k, v| -v }
             .first(limit)
-            .map { |ref, amount| { customer_id: ref, name: names[ref] || ref, amount: amount.round(2) } }
+            .map { |ref, amount| { customer_id: ref, name: names[ref] || ref, amount: amount.round(2), share: share_of(amount, total) } }
+  end
+
+  # Percent share of a dimension total (salience), 0.0 when the total is zero.
+  def share_of(amount, total)
+    total.to_f.positive? ? (amount / total * 100).round(1) : 0.0
   end
 end

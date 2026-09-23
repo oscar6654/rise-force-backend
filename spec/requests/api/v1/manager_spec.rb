@@ -78,23 +78,32 @@ RSpec.describe "Manager app views", type: :request do
 
   it "serves live deep insights (daily trend + top products + category)" do
     s1.update!(vcsi_sales_rep_ref: "REP1")
-    create(:product, it_barcode: "B1", description: "Ariel 66g", case_cost: 100)
+    create(:product, it_barcode: "B1", description: "Ariel 66g", case_cost: 100, pcs_per_case: 6)
     client = instance_double(VcsiRise::Client)
     allow(VcsiRise::Client).to receive(:new).and_return(client)
     allow(client).to receive(:sales_daily)
       .and_return([{ "date" => "#{Date.current.strftime('%Y-%m')}-02", "amount" => "1500.0", "pieces" => "12" }])
     allow(client).to receive(:store_sku_sellout)
       .and_return([{ "customer_id" => "C1", "it_barcode" => "B1", "amount" => "500.0", "pieces" => "5" }])
+    # Per-store sellout is netted (C1's returns on other barcodes pull it to 420).
+    allow(client).to receive(:store_sellout)
+      .and_return([{ "customer_id" => "C1", "customer_name" => "Store C1", "sellout" => "420.0" }])
 
     token = login("MGR1", "9999")["access_token"]
     get "/api/v1/manager/insights", headers: { "Authorization" => "Bearer #{token}" }
     d = JSON.parse(response.body)["data"]
     expect(d["daily"]["this_month"].first["amount"]).to eq(1500.0)
     expect(d["top_products"].first["description"]).to eq("Ariel 66g")
+    # Salience (% of the dimension total) + amount in cases (5 pc ÷ 6/case).
+    expect(d["top_products"].first["share"]).to eq(100.0)
+    expect(d["top_products"].first["cases"]).to eq(0.8)
+    expect(d["by_category"].first["share"]).to eq(100.0)
     expect(d["by_category"]).to be_an(Array)
     # Headline total nets returns via the daily feed (matches the ERP), not the
     # per-SKU rows which drop negative-net barcodes.
     expect(d["confirmed_total"]).to eq(1500.0)
+    # By-store is netted (from store_sellout), not the per-SKU sum (500).
+    expect(d["by_store"].first["amount"]).to eq(420.0)
 
     # Month-picker: ?month=YYYY-MM looks back at a prior month.
     get "/api/v1/manager/insights", params: { month: "2026-07" }, headers: { "Authorization" => "Bearer #{token}" }

@@ -79,7 +79,7 @@ module VcsiRise
     def store_sellout(month: Date.current.beginning_of_month, sales_rep: nil)
       path = SystemSetting.get("vcsi_store_sellout_path", "/api/v1/sfa/store_sellout")
       params = { month: month.strftime("%Y-%m") }
-      params[:sales_rep] = sales_rep if sales_rep.present?
+      params[:sales_rep] = Array(sales_rep).join(",") if sales_rep.present?
       Array(get_json(path, params)["data"])
     end
 
