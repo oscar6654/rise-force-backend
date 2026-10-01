@@ -75,7 +75,7 @@ class BranchLeaderboard
     must = 0
     carried = 0
     stores.each do |s|
-      c = s.assortment_compliance(type_code: type_code)
+      c = s.assortment_compliance(since: Store.dist_window_start(@month), type_code: type_code)
       next unless c
 
       must += c[:must]

@@ -113,13 +113,16 @@ RSpec.describe "Assortment types, dates & barcode incentives" do
       expect(c[:gap_product_ids]).to eq([b3.id]) # B3 is the gap (returned)
     end
 
-    it "still counts new presell for a month vcsi hasn't confirmed yet (cross-month)" do
+    it "resets monthly: last month's confirmed sellout does not carry into this month" do
       b1 = must_stock!("B1"); b2 = must_stock!("B2")
       last_month = month - 1.month
+      # B1 was carried last month (confirmed) — a new month starts fresh...
       StoreSkuSellout.create!(store: store, it_barcode: "B1", period_date: last_month, pieces: 10)
-      presell!(b2, at: Time.current) # this month, unconfirmed -> provisional
+      # ...only B2 was presold this month (unconfirmed, provisional).
+      presell!(b2, at: Time.current)
       c = store.assortment_compliance(type_code: "dist")
-      expect(c[:carried]).to eq(2) # B1 confirmed (last month) + B2 presell (this month)
+      expect(c[:carried]).to eq(1)               # only B2 this month; B1 reset
+      expect(c[:gap_product_ids]).to eq([b1.id]) # B1 no longer counts this month
     end
   end
 end

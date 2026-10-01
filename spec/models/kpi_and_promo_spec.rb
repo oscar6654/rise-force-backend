@@ -102,8 +102,8 @@ RSpec.describe "KPIs, compliance, and promo limits" do
       AssortmentItem.create!(assortment: assortment, product: p1, must_stock: true)
       AssortmentItem.create!(assortment: assortment, product: p2, must_stock: true)
 
-      # order only p1 -> 1 of 2 carried
-      order = create(:order, store: store, seller: seller, branch: branch, ordered_at: 2.days.ago)
+      # order only p1 -> 1 of 2 carried (this month; distribution resets monthly)
+      order = create(:order, store: store, seller: seller, branch: branch, ordered_at: Date.current.beginning_of_month)
       order.order_lines.create!(product: p1, quantity: 1, uom: "case_uom", line_total: 10)
 
       c = store.assortment_compliance

@@ -99,14 +99,31 @@ class Store < ApplicationRecord
               .uniq { |id, _bc, _cc| id }
   end
 
-  # Distribution keys the store is actively carrying within the trailing window.
+  # Start of the distribution/assortment "carried" window. Distribution and
+  # assortment-type metrics RESET MONTHLY by default — carried counts only what
+  # sold (vcsi confirmed) or was ordered (presell) within `month`, so a new
+  # month starts fresh and builds up as the route is worked. Set SystemSetting
+  # `assortment_window_mode` to "trailing" to use a rolling window of
+  # `assortment_window_days` (default 90) instead.
+  def self.dist_window_start(month = Date.current.beginning_of_month)
+    if SystemSetting.get("assortment_window_mode", "monthly").to_s == "trailing"
+      (Time.current - SystemSetting.get("assortment_window_days", 90).to_i.days)
+    else
+      # Zone-aware local midnight so the presell `ordered_at` (UTC) comparison
+      # doesn't drop orders placed just after midnight in the branch timezone.
+      month.to_date.beginning_of_month.in_time_zone
+    end
+  end
+
+  # Distribution keys the store is actively carrying within the window (monthly
+  # reset by default — see .dist_window_start).
   # vcsi_rise confirmed (invoiced, net of credit notes/returns) sellout is the
   # source of truth: once a month is confirmed, its carried barcodes come from
   # vcsi — so an order of 20 that invoices to 10, or is returned via CN, shows
   # 10, not the presell 20. SFA presell orders only provisionally fill months
   # vcsi hasn't confirmed yet (so a just-taken order still counts until it is
   # invoiced). No confirmed data at all (endpoint undeployed) => pure presell.
-  def carried_dist_keys(since: 90.days.ago)
+  def carried_dist_keys(since: Store.dist_window_start)
     keys = Set.new
 
     confirmed = store_sku_sellouts.in_window(since).where("pieces > 0")
@@ -127,7 +144,7 @@ class Store < ApplicationRecord
   # { must:, carried:, pct:, gap_product_ids: } or nil if no must-stock defined.
   # Counts by unique barcode; gap_product_ids returns one representative SKU per
   # missing barcode (so the gap list shows one line per product, not per pack).
-  def assortment_compliance(since: 90.days.ago, type_code: nil)
+  def assortment_compliance(since: Store.dist_window_start, type_code: nil)
     must = must_stock_products(type_code: type_code)
     return nil if must.empty?
 
@@ -147,7 +164,7 @@ class Store < ApplicationRecord
   # Per-assortment-type compliance for this store in one pass (carried computed
   # once, then intersected with each type's must-stock). Returns an array of
   # { type_code, type_name, must, carried, pct } for types that have must-stock.
-  def assortment_by_type(since: 90.days.ago)
+  def assortment_by_type(since: Store.dist_window_start)
     carried = carried_dist_keys(since: since)
     AssortmentType.enabled.ordered.filter_map do |t|
       must = must_stock_products(type_code: t.code)
