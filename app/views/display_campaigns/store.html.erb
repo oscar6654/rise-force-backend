@@ -1,0 +1,48 @@
+<% content_for :page_title, "#{@store.name} — #{@campaign.name}" %>
+
+<div class="mb-4"><%= link_to "‹ Back to campaign", display_campaign_path(@campaign), class: "text-sm text-[#1f4b99] hover:underline" %></div>
+
+<div class="rounded-xl border border-slate-200 bg-white p-4 mb-5 flex items-center justify-between">
+  <div>
+    <div class="text-lg font-bold text-slate-800"><%= @store.name %></div>
+    <div class="text-xs text-slate-400"><%= @store.store_code %><%= " · #{@store.seller.name}" if @store.seller %></div>
+  </div>
+  <div class="text-right">
+    <div class="text-2xl font-bold <%= @summary[:missing].zero? ? "text-green-600" : "text-slate-800" %> tabular-nums"><%= @summary[:done] %>/<%= @summary[:must] %></div>
+    <div class="text-xs text-slate-400">targets executed</div>
+  </div>
+</div>
+
+<div class="space-y-3">
+  <% @summary[:lines].sort_by { |l| [l.executed ? 1 : 0, l.promotion_name] }.each do |line| %>
+    <div class="rounded-xl border <%= line.executed ? "border-slate-200" : "border-red-200 bg-red-50/40" %> bg-white p-4">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <div class="text-sm font-semibold text-slate-800"><%= line.promotion_name %></div>
+          <div class="text-xs text-slate-500 mt-0.5"><%= line.category %><%= " · #{line.brand}" if line.brand.present? %></div>
+        </div>
+        <% if line.executed %>
+          <span class="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-green-100 text-green-800">✓ Executed</span>
+        <% else %>
+          <span class="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-100 text-red-700">Missing photo</span>
+        <% end %>
+      </div>
+
+      <% if line.photos.any? %>
+        <div class="flex flex-wrap gap-3 mt-3">
+          <% line.photos.each do |ph| %>
+            <figure class="w-40">
+              <%= link_to ph.image_url, target: "_blank", rel: "noopener" do %>
+                <img src="<%= ph.image_url %>" alt="execution photo" loading="lazy" class="w-40 h-40 object-cover rounded-lg border border-slate-200 bg-slate-100" />
+              <% end %>
+              <figcaption class="text-[11px] text-slate-400 mt-1"><%= ph.taken_on&.strftime("%b %-d, %Y") || "—" %><%= " · #{ph.activity_type}" if ph.activity_type.present? %></figcaption>
+            </figure>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+  <% if @summary[:lines].empty? %>
+    <div class="rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-400">No targets for this store in this campaign.</div>
+  <% end %>
+</div>

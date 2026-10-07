@@ -89,6 +89,16 @@
       <%= f.label :sales_target, "Sales target", class: "block text-sm font-medium text-slate-700 mb-1" %>
       <%= f.number_field :sales_target, step: "0.01", class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
     </div>
+    <div>
+      <%= f.label :section, "Section (leaderboard group)", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :section, list: "seller_sections", placeholder: "e.g. North, Modern Trade", class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+      <datalist id="seller_sections">
+        <% Seller.where.not(section: [nil, ""]).distinct.order(:section).pluck(:section).each do |sec| %>
+          <option value="<%= sec %>"></option>
+        <% end %>
+      </datalist>
+      <p class="text-[11px] text-slate-400 mt-1">Sellers compete on the app leaderboard only against others in the same section. Blank = ungrouped (competes with other blanks).</p>
+    </div>
   </div>
   <div class="mt-5 flex items-center gap-2">
     <%= f.submit(seller.persisted? ? "Save changes" : "Create seller", class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-4 py-2 hover:bg-[#17386f] cursor-pointer") %>

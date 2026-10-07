@@ -141,39 +141,74 @@ class Store < ApplicationRecord
     keys
   end
 
-  # { must:, carried:, pct:, gap_product_ids: } or nil if no must-stock defined.
-  # Counts by unique barcode; gap_product_ids returns one representative SKU per
-  # missing barcode (so the gap list shows one line per product, not per pack).
-  def assortment_compliance(since: Store.dist_window_start, type_code: nil)
-    must = must_stock_products(type_code: type_code)
-    return nil if must.empty?
-
-    # Highest case_cost first so the first row per barcode group is the same
-    # representative the catalog collapses to (the SKU the seller can order).
-    by_key = must.sort_by { |id, _bc, cc| [-(cc || 0), id] }
-                 .group_by { |id, bc, _cc| dist_key(bc, id) } # key => [[id, bc, cc], ...]
-    carried = carried_dist_keys(since: since)
-    carried_keys, gap_keys = by_key.keys.partition { |k| carried.include?(k) }
-    {
-      must: by_key.size, carried: carried_keys.size,
-      pct: (carried_keys.size * 100.0 / by_key.size).round,
-      gap_product_ids: gap_keys.map { |k| by_key[k].first.first }
-    }
+  # Must-stock rows tagged with their assortment's reset window:
+  # [type_code, type_name, reset_months, product_id, barcode, case_cost].
+  def must_stock_raw(type_code: nil, on: Date.current)
+    Assortment.resolved_scope_for(self, on: on, type_code: type_code)
+              .joins(:assortment_type)
+              .joins(assortment_items: :product)
+              .where(assortment_items: { must_stock: true })
+              .pluck("assortment_types.code", "assortment_types.name", "assortments.reset_months",
+                     "products.id", "products.it_barcode", "products.case_cost")
   end
 
-  # Per-assortment-type compliance for this store in one pass (carried computed
-  # once, then intersected with each type's must-stock). Returns an array of
-  # { type_code, type_name, must, carried, pct } for types that have must-stock.
-  def assortment_by_type(since: Store.dist_window_start)
-    carried = carried_dist_keys(since: since)
-    AssortmentType.enabled.ordered.filter_map do |t|
-      must = must_stock_products(type_code: t.code)
-      next if must.empty?
+  # { must:, carried:, pct:, gap_product_ids: } or nil if no must-stock defined.
+  # Each must-stock barcode is checked against ITS assortment's reset window
+  # (monthly / quarterly / half-year), so a quarterly target counts a SKU carried
+  # anytime in the quarter. Pass `since:` to force a single window (legacy).
+  def assortment_compliance(type_code: nil, on: Date.current, since: nil)
+    raw = must_stock_raw(type_code: type_code, on: on)
+    return nil if raw.empty?
 
-      by_key = must.sort_by { |id, _bc, cc| [-(cc || 0), id] }.group_by { |id, bc, _cc| dist_key(bc, id) }
-      carried_count = by_key.keys.count { |k| carried.include?(k) }
-      { type_code: t.code, type_name: t.name, must: by_key.size, carried: carried_count,
-        pct: (carried_count * 100.0 / by_key.size).round }
+    # Dedupe by distribution key (barcode); representative = highest case_cost;
+    # window = earliest start among contributing assortments (most lenient).
+    by_key = {}
+    raw.each do |_code, _name, reset_m, pid, bc, cc|
+      key = dist_key(bc, pid)
+      w = since || Assortment.window_start_for(reset_m, on)
+      g = (by_key[key] ||= { rep_id: pid, rep_cc: cc.to_f, window: w })
+      if cc.to_f > g[:rep_cc]
+        g[:rep_id] = pid
+        g[:rep_cc] = cc.to_f
+      end
+      g[:window] = w if w < g[:window]
+    end
+
+    carried_cache = {}
+    carried_count = 0
+    gap_ids = []
+    by_key.each do |key, g|
+      set = (carried_cache[g[:window]] ||= carried_dist_keys(since: g[:window]))
+      set.include?(key) ? (carried_count += 1) : (gap_ids << g[:rep_id])
+    end
+    { must: by_key.size, carried: carried_count,
+      pct: (carried_count * 100.0 / by_key.size).round, gap_product_ids: gap_ids }
+  end
+
+  # Per-assortment-type compliance for this store. Carried is computed per
+  # distinct reset window, so types/assortments on different cycles are correct.
+  # Returns [{ type_code, type_name, must, carried, pct }] for types with must-stock.
+  def assortment_by_type(on: Date.current, since: nil)
+    raw = must_stock_raw(on: on)
+    return [] if raw.empty?
+
+    types = {} # code => { keys: { dist_key => earliest window } }
+    raw.each do |code, _name, reset_m, pid, bc, _cc|
+      key = dist_key(bc, pid)
+      w = since || Assortment.window_start_for(reset_m, on)
+      keys = (types[code] ||= {})
+      cur = keys[key]
+      keys[key] = cur && cur < w ? cur : w
+    end
+
+    carried_cache = {}
+    AssortmentType.enabled.ordered.filter_map do |t|
+      keys = types[t.code]
+      next if keys.blank?
+
+      carried = keys.count { |key, w| (carried_cache[w] ||= carried_dist_keys(since: w)).include?(key) }
+      { type_code: t.code, type_name: t.name, must: keys.size, carried: carried,
+        pct: (carried * 100.0 / keys.size).round }
     end
   end
 

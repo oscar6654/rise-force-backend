@@ -31,4 +31,17 @@ RSpec.describe BranchLeaderboard do
     ab = result[:rows].find { |r| r[:seller_id] == a.id }
     expect(ab[:me]).to be(true)
   end
+
+  it "ranks sellers only within their own section" do
+    a.update!(section: "North")
+    c.update!(section: "South") # different section — must not appear on A's board
+    other_north = create(:seller, branch: branch, name: "Rep N2", section: "North")
+    SellerTarget.create!(seller: other_north, branch: branch, period_type: :mtd, period_date: month, target_amount: 100_000)
+    SelloutSnapshot.create!(seller: other_north, branch: branch, period_type: :mtd, period_date: month, amount: 10_000)
+
+    result = described_class.new(a).ranking("target_pct")
+    ids = result[:rows].map { |r| r[:seller_id] }
+    expect(ids).to contain_exactly(a.id, other_north.id) # South (c) excluded
+    expect(result[:section]).to eq("North")
+  end
 end

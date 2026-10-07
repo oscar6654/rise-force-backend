@@ -1,6 +1,7 @@
 module Api
   module V1
     class MeController < BaseController
+      include DisplayApi
       # GET /api/v1/me/targets?period=mtd
       def targets
         month = Date.current.beginning_of_month
@@ -136,6 +137,22 @@ module Api
       # GET /api/v1/me/assortment_types — enabled types for leaderboard/segment chips.
       def assortment_types
         render json: { data: AssortmentType.enabled.ordered.map { |t| { code: t.code, name: t.name } }, meta: meta }
+      end
+
+      # GET /api/v1/me/display_targets → this seller's stores, with executed vs
+      # missing display-target lines, for the current live campaign(s).
+      def display_targets
+        ids = display_store_ids_for(current_group_ids)
+        render json: { data: { campaigns: display_campaigns_payload(ids) }, meta: meta }
+      end
+
+      # GET /api/v1/me/display_targets/stores/:store_id?campaign_id=
+      def display_store
+        store = Store.find(params[:store_id])
+        return render_unauthorized unless display_store_ids_for(current_group_ids).include?(store.id)
+
+        campaign = DisplayCampaign.find(params[:campaign_id])
+        render json: { data: display_store_detail(campaign, store), meta: meta }
       end
 
       # GET /api/v1/me/call_list?date=YYYY-MM-DD

@@ -3,6 +3,7 @@ module Api
     # Field-manager app views: a combined team scoreboard and a per-seller drill
     # into store performance. Manager sees only the sellers assigned to them.
     class ManagerController < BaseController
+      include DisplayApi
       before_action :require_manager!
 
       # GET /api/v1/manager/team
@@ -78,6 +79,24 @@ module Api
         render json: { data: cached_insights("store-#{store.id}", reps: reps, customer_id: store.vcsi_customer_ref), meta: meta }
       end
 
+      # GET /api/v1/manager/display → active display campaigns, per team store:
+      # executed vs missing target lines. View-only (uploads are console-side).
+      # Uses the display store scope (not team_store_ids) because a display-target
+      # store need not be vcsi-linked.
+      def display
+        render json: { data: { campaigns: display_campaigns_payload(display_team_store_ids.to_a) }, meta: meta }
+      end
+
+      # GET /api/v1/manager/display/stores/:store_id?campaign_id=  → one store's
+      # target lines with execution photos.
+      def display_store
+        store = Store.find(params[:store_id])
+        return render_unauthorized unless display_team_store_ids.include?(store.id)
+
+        campaign = DisplayCampaign.find(params[:campaign_id])
+        render json: { data: display_store_detail(campaign, store), meta: meta }
+      end
+
       private
 
       def team_rep_codes(seller_ids)
@@ -113,6 +132,11 @@ module Api
 
       def team_store_ids
         @team_store_ids ||= group_stores(current_manager.team_seller_ids).pluck(:id).to_set
+      end
+
+      # Stores for display targets: all the team's stores (vcsi link not required).
+      def display_team_store_ids
+        @display_team_store_ids ||= display_store_ids_for(current_manager.team_seller_ids).to_set
       end
 
       # Pool each store's per-type compliance across the seller's (group's) stores.

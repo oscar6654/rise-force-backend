@@ -1,0 +1,35 @@
+<% content_for :page_title, "New display-target campaign" %>
+
+<div class="rounded-xl border border-slate-200 bg-white p-6 mx-auto max-w-xl">
+  <% if @campaign.errors.any? %>
+    <div class="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700 mb-4">
+      <%= @campaign.errors.full_messages.to_sentence %>
+    </div>
+  <% end %>
+
+  <p class="text-sm text-slate-600 mb-4">Upload the target base <strong>.xlsx</strong> (Sheet1: <code>Account</code>, <code>Promotion Name</code>, <code>Category</code>, <code>Brand</code>). The store code is read from the <code>CU_####</code> in column A. Set the window this plan runs in — the app only shows it, and only counts photos, within these dates.</p>
+
+  <%= form_with url: display_campaigns_path, method: :post, local: true, multipart: true, scope: :display_campaign do |f| %>
+    <label class="block text-sm font-medium text-slate-700 mb-1">Campaign name</label>
+    <%= f.text_field :name, value: @campaign.name, placeholder: "e.g. Display Targets — Oct 2026", class: "block w-full rounded-md border border-slate-300 px-3 py-2 text-sm mb-4" %>
+
+    <div class="grid grid-cols-2 gap-3 mb-4">
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">From</label>
+        <%= f.date_field :period_from, value: @campaign.period_from, class: "block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">To</label>
+        <%= f.date_field :period_to, value: @campaign.period_to, class: "block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+      </div>
+    </div>
+
+    <label class="block text-sm font-medium text-slate-700 mb-1">Target file (.xlsx)</label>
+    <%= file_field_tag :file, accept: ".xlsx", class: "block w-full text-sm text-slate-600 mb-4" %>
+
+    <div class="flex items-center gap-2">
+      <%= submit_tag "Upload & create", class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-4 py-2 hover:bg-[#17386f] cursor-pointer" %>
+      <%= link_to "Cancel", display_campaigns_path, class: "text-sm text-slate-500 hover:underline px-2" %>
+    </div>
+  <% end %>
+</div>

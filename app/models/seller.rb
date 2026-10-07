@@ -36,6 +36,9 @@ class Seller < ApplicationRecord
 
   validates :seller_code, presence: true, uniqueness: { case_sensitive: false }
   validates :name, presence: true
+
+  # Leaderboard grouping: trim to nil so blank/whitespace all compete together.
+  normalizes :section, with: ->(v) { v.to_s.strip.presence }
   # A diser code must be distinct from every seller code — otherwise the login
   # resolves to the SELLER (seller_code is matched first) and the diser gets the
   # full app instead of the stock-check-only view.

@@ -1,0 +1,81 @@
+<% content_for :page_title, @campaign.name %>
+
+<div class="mb-4"><%= link_to "‹ All campaigns", display_campaigns_path, class: "text-sm text-[#1f4b99] hover:underline" %></div>
+
+<div class="grid md:grid-cols-4 gap-3 mb-5">
+  <div class="rounded-xl border border-slate-200 bg-white p-4">
+    <div class="text-xs text-slate-400 uppercase tracking-wide">Window</div>
+    <div class="text-sm font-semibold text-slate-800 mt-1"><%= @campaign.period_from.strftime("%b %-d") %> – <%= @campaign.period_to.strftime("%b %-d, %Y") %></div>
+  </div>
+  <div class="rounded-xl border border-slate-200 bg-white p-4">
+    <div class="text-xs text-slate-400 uppercase tracking-wide">Target lines</div>
+    <div class="text-xl font-bold text-slate-800 mt-1 tabular-nums"><%= @targets_count %></div>
+  </div>
+  <div class="rounded-xl border border-slate-200 bg-white p-4">
+    <div class="text-xs text-slate-400 uppercase tracking-wide">Evidence photos</div>
+    <div class="text-xl font-bold text-slate-800 mt-1 tabular-nums"><%= @evidence_count %></div>
+  </div>
+  <div class="rounded-xl border border-slate-200 bg-white p-4">
+    <div class="text-xs text-slate-400 uppercase tracking-wide">Unmatched store codes</div>
+    <div class="text-xl font-bold text-slate-800 mt-1 tabular-nums"><%= @unmatched_targets %></div>
+    <div class="text-[11px] text-slate-400">not in store master</div>
+  </div>
+</div>
+
+<% if can?(:display_campaign, :create) %>
+  <div class="rounded-xl border border-slate-200 bg-white p-4 mb-5">
+    <div class="text-sm font-semibold text-slate-700 mb-1">Execution evidence (CSV)</div>
+    <p class="text-xs text-slate-500 mb-3">Upload the result CSV (photos). A new upload <strong>supersedes</strong> the previous one. Matched on store + promotion + category (+ brand when the target names one), within this campaign's window.</p>
+    <%= form_with url: evidence_display_campaign_path(@campaign), method: :post, local: true, multipart: true, class: "flex items-center gap-2" do %>
+      <%= file_field_tag :file, accept: ".csv", class: "block text-sm text-slate-600" %>
+      <%= submit_tag "Upload CSV", class: "shrink-0 rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-4 py-2 hover:bg-[#17386f] cursor-pointer" %>
+    <% end %>
+  </div>
+<% end %>
+
+<div class="flex items-center justify-between mb-2">
+  <h2 class="text-sm font-semibold text-slate-700">Store execution (<%= @rows.size %> stores with targets)</h2>
+  <%= link_to "↓ CSV report", display_campaign_path(@campaign, format: :csv), class: "text-xs rounded-md border border-slate-300 px-3 py-1.5 font-semibold hover:bg-slate-50" %>
+</div>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-slate-500 text-left text-xs uppercase tracking-wide">
+      <tr>
+        <th class="px-4 py-2.5">Store</th>
+        <th class="px-4 py-2.5">Seller</th>
+        <th class="px-4 py-2.5 text-right">Done</th>
+        <th class="px-4 py-2.5 text-right">Missing</th>
+        <th class="px-4 py-2.5 w-40">Execution</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      <% @rows.each do |r| %>
+        <tr class="hover:bg-slate-50">
+          <td class="px-4 py-2.5">
+            <% if r[:store] %>
+              <%= link_to r[:name], store_display_campaign_path(@campaign, store_id: r[:store_id]), class: "font-semibold text-[#1f4b99] hover:underline" %>
+            <% else %>
+              <span class="text-slate-500"><%= r[:name] %></span>
+            <% end %>
+            <div class="text-xs text-slate-400"><%= r[:code] %></div>
+          </td>
+          <td class="px-4 py-2.5 text-slate-600"><%= r[:seller] || "—" %></td>
+          <td class="px-4 py-2.5 text-right tabular-nums"><%= r[:done] %>/<%= r[:must] %></td>
+          <td class="px-4 py-2.5 text-right tabular-nums <%= "text-red-600 font-semibold" if r[:missing].positive? %>"><%= r[:missing] %></td>
+          <td class="px-4 py-2.5">
+            <div class="flex items-center gap-2">
+              <div class="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
+                <div class="h-2 rounded-full <%= r[:pct] >= 100 ? "bg-green-500" : "bg-amber-500" %>" style="width: <%= r[:pct] %>%"></div>
+              </div>
+              <span class="text-xs tabular-nums text-slate-500 w-9 text-right"><%= r[:pct] %>%</span>
+            </div>
+          </td>
+        </tr>
+      <% end %>
+      <% if @rows.empty? %>
+        <tr><td colspan="5" class="px-4 py-8 text-center text-slate-400">No targets matched to stores in your master yet. Check the xlsx store codes.</td></tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>

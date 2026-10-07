@@ -73,6 +73,15 @@ Rails.application.routes.draw do
   end
   resources :incentive_schemes, except: [:show]
 
+  # Display/visibility targets: upload the xlsx base (a campaign + from/to), then
+  # upload CSV execution evidence inside it (newest supersedes). Store drill-down.
+  resources :display_campaigns, only: [:index, :new, :create, :show, :destroy] do
+    member do
+      post :evidence
+      get "stores/:store_id", action: :store, as: :store
+    end
+  end
+
   # Bulk CSV upload for masters
   get  "imports/:kind/new"    => "imports#new",    as: :new_import
   get  "imports/:kind/sample" => "imports#sample", as: :sample_import
@@ -122,6 +131,8 @@ Rails.application.routes.draw do
       get "manager/sellers/:id/insights" => "manager#seller_insights"
       get "manager/stores/:id"    => "manager#store"
       get "manager/stores/:id/insights"  => "manager#store_insights"
+      get "manager/display"       => "manager#display"
+      get "manager/display/stores/:store_id" => "manager#display_store"
 
       resources :store_registrations, only: [:create, :index]
 
@@ -140,6 +151,8 @@ Rails.application.routes.draw do
       get "me/incentives"  => "me#incentives"
       get "me/leaderboard" => "me#leaderboard"
       get "me/assortment_types" => "me#assortment_types"
+      get "me/display_targets" => "me#display_targets"
+      get "me/display_targets/stores/:store_id" => "me#display_store"
     end
   end
 

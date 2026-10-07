@@ -101,7 +101,7 @@ class IncentiveCalculator
     completed_confirmed = 0
     completed_projected = 0
     seller_stores.find_each do |store|
-      c = store.assortment_compliance(since: Store.dist_window_start(@month), type_code: type)
+      c = store.assortment_compliance(on: @month, type_code: type)
       next unless c && c[:must].positive?
 
       completed_projected += 1 if c[:carried] >= c[:must]

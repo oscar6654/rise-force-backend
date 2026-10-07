@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_18_130001) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_08_090001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -73,6 +73,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_130001) do
     t.date "effective_from"
     t.date "effective_to"
     t.string "name", null: false
+    t.integer "reset_months", default: 1, null: false
     t.integer "status", default: 0, null: false
     t.bigint "store_category_ref_id"
     t.datetime "updated_at", null: false
@@ -149,6 +150,52 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_130001) do
     t.index ["manager_id"], name: "index_device_tokens_on_manager_id"
     t.index ["seller_id", "device_id"], name: "index_device_tokens_on_seller_id_and_device_id"
     t.index ["seller_id"], name: "index_device_tokens_on_seller_id"
+  end
+
+  create_table "display_campaigns", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "created_by_id"
+    t.string "name", null: false
+    t.date "period_from", null: false
+    t.date "period_to", null: false
+    t.string "source_filename"
+    t.integer "status", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_by_id"], name: "index_display_campaigns_on_created_by_id"
+  end
+
+  create_table "display_evidences", force: :cascade do |t|
+    t.string "activity_type"
+    t.string "batch_token"
+    t.string "brand"
+    t.string "category"
+    t.datetime "created_at", null: false
+    t.bigint "display_campaign_id", null: false
+    t.date "from_date"
+    t.text "image_url"
+    t.date "photo_taken_at"
+    t.string "promotion_name", null: false
+    t.string "store_code", null: false
+    t.bigint "store_id"
+    t.date "to_date"
+    t.datetime "updated_at", null: false
+    t.index ["display_campaign_id", "store_code", "promotion_name"], name: "idx_display_evidence_match"
+    t.index ["display_campaign_id"], name: "index_display_evidences_on_display_campaign_id"
+    t.index ["store_id"], name: "index_display_evidences_on_store_id"
+  end
+
+  create_table "display_targets", force: :cascade do |t|
+    t.string "brand"
+    t.string "category"
+    t.datetime "created_at", null: false
+    t.bigint "display_campaign_id", null: false
+    t.string "promotion_name", null: false
+    t.string "store_code", null: false
+    t.bigint "store_id"
+    t.datetime "updated_at", null: false
+    t.index ["display_campaign_id", "store_code"], name: "index_display_targets_on_display_campaign_id_and_store_code"
+    t.index ["display_campaign_id"], name: "index_display_targets_on_display_campaign_id"
+    t.index ["store_id"], name: "index_display_targets_on_store_id"
   end
 
   create_table "incentive_schemes", force: :cascade do |t|
@@ -535,6 +582,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_130001) do
     t.string "pin_digest"
     t.bigint "primary_seller_id"
     t.decimal "sales_target", precision: 15, scale: 2
+    t.string "section"
     t.string "seller_code", null: false
     t.integer "status", default: 0, null: false
     t.string "supervisor_name"
@@ -546,6 +594,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_130001) do
     t.index ["branch_id"], name: "index_sellers_on_branch_id"
     t.index ["diser_code"], name: "index_sellers_on_diser_code", unique: true, where: "(diser_code IS NOT NULL)"
     t.index ["primary_seller_id"], name: "index_sellers_on_primary_seller_id"
+    t.index ["section"], name: "index_sellers_on_section"
     t.index ["seller_code"], name: "index_sellers_on_seller_code", unique: true
     t.index ["user_id"], name: "index_sellers_on_user_id"
     t.index ["vcsi_sales_rep_ref"], name: "index_sellers_on_vcsi_sales_rep_ref"
@@ -848,6 +897,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_130001) do
   add_foreign_key "competitor_price_checks", "products"
   add_foreign_key "competitor_price_checks", "visits"
   add_foreign_key "device_tokens", "sellers"
+  add_foreign_key "display_campaigns", "users", column: "created_by_id"
+  add_foreign_key "display_evidences", "display_campaigns"
+  add_foreign_key "display_evidences", "stores"
+  add_foreign_key "display_targets", "display_campaigns"
+  add_foreign_key "display_targets", "stores"
   add_foreign_key "incentive_schemes", "branches"
   add_foreign_key "job_logs", "users", column: "triggered_by_id"
   add_foreign_key "manager_sellers", "managers"

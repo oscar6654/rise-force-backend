@@ -28,6 +28,8 @@ class BranchLeaderboard
     rows.each_with_index { |r, i| r[:rank] = i + 1 }
     { metric: metric, assortment_type: assortment_type, rows: rows,
       me_rank: rows.find { |r| r[:me] }&.dig(:rank), of: rows.size,
+      # Sellers compete within their SECTION only.
+      section: @seller.section,
       # Branch context so the app can render the branch filter chips.
       branch: @branch.presence || "mine", my_branch_id: @seller.branch_id,
       branches: Branch.active.order(:name).pluck(:id, :name).map { |id, name| { id: id, name: name } } }
@@ -38,10 +40,11 @@ class BranchLeaderboard
   def seller_scope
     # Only login records (primary / standalone) are entrants; secondary records
     # of a login group roll into their primary, so a group appears once.
-    scope = Seller.active.where(primary_seller_id: nil)
+    # Sellers compete WITHIN THEIR SECTION only (nil section competes with nil).
+    scope = Seller.active.where(primary_seller_id: nil, section: @seller.section)
     case @branch
     when "", nil     then scope.where(branch_id: @seller.branch_id) # default: own branch
-    when "all", "total" then scope                                  # every branch
+    when "all", "total" then scope                                  # every branch (same section)
     else scope.where(branch_id: @branch.to_i)                       # a specific branch
     end
   end
@@ -75,7 +78,7 @@ class BranchLeaderboard
     must = 0
     carried = 0
     stores.each do |s|
-      c = s.assortment_compliance(since: Store.dist_window_start(@month), type_code: type_code)
+      c = s.assortment_compliance(on: @month, type_code: type_code)
       next unless c
 
       must += c[:must]

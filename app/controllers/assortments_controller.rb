@@ -73,7 +73,7 @@ class AssortmentsController < ApplicationController
 
   def assortment_params
     params.require(:assortment).permit(:name, :branch_id, :channel_id, :store_category_ref_id, :status,
-                                       :assortment_type_id, :effective_from, :effective_to)
+                                       :assortment_type_id, :effective_from, :effective_to, :reset_months)
   end
 
   def selected_barcodes

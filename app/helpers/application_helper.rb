@@ -19,7 +19,8 @@ module ApplicationHelper
         NavItem.new(label: "Field visits", path: visits_path, icon: "📍", resource: :visit),
         NavItem.new(label: "Assortment compliance", path: compliance_index_path, icon: "☑", resource: :store),
         NavItem.new(label: "Stock & replenishment", path: replenishment_index_path, icon: "📦", resource: :stock_count),
-        NavItem.new(label: "Competitor & prices", path: competitor_price_checks_path, icon: "⚖", resource: :competitor_check)
+        NavItem.new(label: "Competitor & prices", path: competitor_price_checks_path, icon: "⚖", resource: :competitor_check),
+        NavItem.new(label: "Display targets", path: display_campaigns_path, icon: "🖼", resource: :display_campaign)
       ],
       "Organization" => [
         NavItem.new(label: "Branch master",    path: branches_path,         icon: "◫", resource: :branch),

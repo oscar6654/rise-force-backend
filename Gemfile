@@ -79,3 +79,6 @@ group :development do
 end
 
 gem "mailgun-ruby", "~> 1.4"
+
+# Read .xlsx uploads (display-target base files) server-side.
+gem "roo", "~> 2.10"

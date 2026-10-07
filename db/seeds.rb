@@ -33,7 +33,8 @@ RESOURCE_ACTIONS = {
   "job_log"            => %w[view],
   "incentive_scheme"   => %w[view create update],
   "stock_count"        => %w[view download],       # in-store shelf audits (field capture)
-  "competitor_check"   => %w[view download]        # shelf price + competitor capture
+  "competitor_check"   => %w[view download],       # shelf price + competitor capture
+  "display_campaign"   => %w[view create destroy]  # display/visibility targets (xlsx) + evidence (csv)
 }.freeze
 
 RESOURCE_ACTIONS.each do |resource, actions|
@@ -87,6 +88,7 @@ grant(nm, "store_registration", "approve")
 grant(nm, "order_batch", "download")
 grant(nm, "sync", "sync")
 grant(nm, "incentive_scheme", %w[create update])
+grant(nm, "display_campaign", %w[create destroy])
 %w[stock_count competitor_check visit].each { |r| grant(nm, r, "download") }
 
 # branch_manager (branch-scoped at the controller layer)
@@ -113,6 +115,7 @@ grant(md, "store", "view")
 end
 %w[pricing planogram promo].each { |r| grant(md, r, %w[view create update publish]) }
 grant(md, "incentive_scheme", %w[view create update])
+grant(md, "display_campaign", %w[view create destroy])
 
 # osb_operator (branch-scoped)
 osb = roles["osb_operator"]
