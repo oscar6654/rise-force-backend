@@ -75,4 +75,20 @@ RSpec.describe "Api::V1 seller-scoped sync", type: :request do
       expect(response.parsed_body["data"]).to be_empty
     end
   end
+
+  describe "GET /api/v1/sync/promos" do
+    it "excludes promos past their end_date even if status is still active" do
+      live = Promo.create!(code: "LIVE", name: "Live now", mechanic_type: :discount_percent,
+                           status: :active, start_date: Date.current - 2, end_date: Date.current + 2)
+      # Ended yesterday but the status flip hasn't run yet — must NOT be sent.
+      Promo.create!(code: "GONE", name: "Ended", mechanic_type: :discount_percent,
+                    status: :active, start_date: Date.current - 10, end_date: Date.current - 1)
+
+      get "/api/v1/sync/promos", params: { store_id: store.id }, headers: auth_header, as: :json
+      expect(response).to have_http_status(:ok)
+      codes = response.parsed_body["data"].map { |p| p["code"] }
+      expect(codes).to include("LIVE")
+      expect(codes).not_to include("GONE")
+    end
+  end
 end

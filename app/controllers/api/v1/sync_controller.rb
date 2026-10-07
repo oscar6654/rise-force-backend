@@ -97,8 +97,12 @@ module Api
 
       def promos
         store = current_seller.branch && Store.find_by(id: params[:store_id])
-        scope = store ? Promo.eligible_for(store) : Promo.all
-        rows = since_scope(scope.where(status: :active).includes(:promo_lines)).map do |pr|
+        base = store ? Promo.eligible_for(store) : Promo.all
+        # Only promos LIVE today (status active AND within start/end) — matches
+        # PromoEngine, so a promo past its end_date stops showing on the card even
+        # if its status hasn't been flipped to :ended yet.
+        scope = base.live_on(Date.current)
+        rows = since_scope(scope.includes(:promo_lines)).map do |pr|
           { id: pr.id, code: pr.code, name: pr.name, mechanic_type: pr.mechanic_type,
             start_date: pr.start_date, end_date: pr.end_date, config: pr.config,
             per_store_limit: pr.per_store_limit, # nil/0 = unlimited; app pre-checks avails

@@ -25,6 +25,11 @@ class SystemSetting < ApplicationRecord
       "warn" => "Lenient — allow check-in, just record the distance",
       "soft" => "Require a reason — allow, but the seller must log why they're far",
       "hard" => "Enforce — block check-in beyond the radius"
+    },
+    # How the distribution / assortment-type "carried" metric is windowed.
+    "assortment_window_mode" => {
+      "monthly"  => "Monthly reset — carried restarts each month (recommended)",
+      "trailing" => "Trailing window — rolling N days (set “Assortment window days”)"
     }
   }.freeze
 

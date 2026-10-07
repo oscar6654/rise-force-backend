@@ -270,6 +270,11 @@ seed_setting("provisional_code_prefix", value: "PROV", category: "stores", descr
 
 # feature flags
 seed_setting("feature_gps_mismatch_warn_meters", value: "150", type: "integer", category: "features", description: "Warn when check-in GPS is farther than this from the store")
+# Distribution / assortment-type "carried" window — how long a SKU counts as
+# carried. Monthly (default) resets the metric each month; trailing uses a
+# rolling window of assortment_window_days.
+seed_setting("assortment_window_mode", value: "monthly", category: "features", description: "How distribution / assortment-type ‘carried’ is measured — monthly (resets each month) or trailing (rolling N days)")
+seed_setting("assortment_window_days", value: "90", type: "integer", category: "features", description: "Rolling window length in days when the mode above is ‘trailing’ (ignored for monthly)")
 
 puts "SystemSettings: #{SystemSetting.count}"
 puts "Seed complete."
