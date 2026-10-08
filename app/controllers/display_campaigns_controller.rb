@@ -2,9 +2,9 @@ require "csv"
 
 class DisplayCampaignsController < ApplicationController
   before_action -> { authorize!(:display_campaign, :view) }, only: [:index, :show, :store, :unmatched]
-  before_action -> { authorize!(:display_campaign, :create) }, only: [:new, :create, :evidence]
+  before_action -> { authorize!(:display_campaign, :create) }, only: [:new, :create, :evidence, :reimport, :relink]
   before_action -> { authorize!(:display_campaign, :destroy) }, only: [:destroy]
-  before_action :set_campaign, only: [:show, :destroy, :evidence, :store, :unmatched]
+  before_action :set_campaign, only: [:show, :destroy, :evidence, :store, :unmatched, :reimport, :relink]
 
   def index
     @campaigns = DisplayCampaign.order(created_at: :desc)
@@ -74,6 +74,37 @@ class DisplayCampaignsController < ApplicationController
       format.html
       format.csv { send_data report_csv(@rows), filename: "display_targets_#{@campaign.id}.csv", type: "text/csv" }
     end
+  end
+
+  # Replace this campaign's target lines from a corrected xlsx (supersedes, and
+  # re-resolves store codes against the current master). Keeps the evidence.
+  def reimport
+    file = params[:file]
+    return redirect_to(display_campaign_path(@campaign), alert: "Choose the .xlsx file.") if file.blank?
+
+    log = Import::DisplayTargetsImporter.new(file.tempfile.path, campaign: @campaign,
+                                             user: current_user, filename: file.original_filename).call
+    redirect_to display_campaign_path(@campaign),
+                notice: "Replaced targets: #{log.processed_rows}/#{log.total_rows} rows" \
+                        "#{log.error_count.positive? ? " (#{log.error_count} rejected)" : ""}."
+  rescue StandardError => e
+    redirect_to display_campaign_path(@campaign), alert: "Re-upload failed: #{e.message}"
+  end
+
+  # Re-link unmatched rows (targets AND evidence) to the store master — use after
+  # adding the missing store codes. No re-upload needed.
+  def relink
+    codes = (@campaign.display_targets.where(store_id: nil).distinct.pluck(:store_code) +
+             @campaign.display_evidences.where(store_id: nil).distinct.pluck(:store_code)).uniq
+    map = Store.where(store_code: codes).pluck(:store_code, :id).to_h
+    linked_targets = 0
+    map.each do |code, sid|
+      linked_targets += @campaign.display_targets.where(store_id: nil, store_code: code).update_all(store_id: sid)
+      @campaign.display_evidences.where(store_id: nil, store_code: code).update_all(store_id: sid)
+    end
+    redirect_to display_campaign_path(@campaign),
+                notice: map.any? ? "Re-linked #{map.size} store code(s) (#{linked_targets} target rows) to the master." :
+                                   "No new matches — those store codes still aren't in the store master."
   end
 
   # Downloadable list of store codes that didn't match the store master.

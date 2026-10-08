@@ -28,23 +28,37 @@
 <% if @unmatched_codes.any? %>
   <details class="rounded-xl border border-amber-300 bg-amber-50 p-4 mb-5">
     <summary class="cursor-pointer text-sm font-semibold text-amber-800"><%= @unmatched_codes.size %> store code(s) in the file aren't in your store master — these stores won't show in the app until added/linked</summary>
-    <p class="text-xs text-amber-700 mt-2">Add these <code>store_code</code>s to the <%= link_to "Store master", stores_path, class: "underline" %> (or fix the code), then re-upload the xlsx.</p>
+    <p class="text-xs text-amber-700 mt-2">Two ways to fix: (a) add these <code>store_code</code>s to the <%= link_to "Store master", stores_path, class: "underline" %> then click <strong>Re-link</strong> below — no re-upload needed; or (b) fix the codes in the xlsx and use <strong>Replace targets</strong> below.</p>
     <div class="flex flex-wrap gap-1.5 mt-3">
       <% @unmatched_codes.each do |code| %>
         <span class="inline-flex items-center px-2 py-0.5 rounded bg-white border border-amber-300 text-xs font-mono text-amber-800"><%= code %></span>
       <% end %>
     </div>
+    <% if can?(:display_campaign, :create) %>
+      <%= button_to "Re-link to store master", relink_display_campaign_path(@campaign), method: :post,
+            class: "mt-3 rounded-md bg-amber-600 text-white text-sm font-semibold px-3 py-2 hover:bg-amber-700 cursor-pointer" %>
+    <% end %>
   </details>
 <% end %>
 
 <% if can?(:display_campaign, :create) %>
-  <div class="rounded-xl border border-slate-200 bg-white p-4 mb-5">
-    <div class="text-sm font-semibold text-slate-700 mb-1">Execution evidence (CSV)</div>
-    <p class="text-xs text-slate-500 mb-3">Upload the result CSV (photos). A new upload <strong>supersedes</strong> the previous one. Matched on store + promotion + category (+ brand when the target names one), within this campaign's window.</p>
-    <%= form_with url: evidence_display_campaign_path(@campaign), method: :post, local: true, multipart: true, class: "flex items-center gap-2" do %>
-      <%= file_field_tag :file, accept: ".csv", class: "block text-sm text-slate-600" %>
-      <%= submit_tag "Upload CSV", class: "shrink-0 rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-4 py-2 hover:bg-[#17386f] cursor-pointer" %>
-    <% end %>
+  <div class="grid md:grid-cols-2 gap-3 mb-5">
+    <div class="rounded-xl border border-slate-200 bg-white p-4">
+      <div class="text-sm font-semibold text-slate-700 mb-1">Execution evidence (CSV)</div>
+      <p class="text-xs text-slate-500 mb-3">Upload the result CSV (photos). A new upload <strong>supersedes</strong> the previous one. Matched on store + promotion + category (+ brand when the target names one), within this campaign's window.</p>
+      <%= form_with url: evidence_display_campaign_path(@campaign), method: :post, local: true, multipart: true, class: "flex items-center gap-2" do %>
+        <%= file_field_tag :file, accept: ".csv", class: "block text-sm text-slate-600" %>
+        <%= submit_tag "Upload CSV", class: "shrink-0 rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-4 py-2 hover:bg-[#17386f] cursor-pointer" %>
+      <% end %>
+    </div>
+    <div class="rounded-xl border border-slate-200 bg-white p-4">
+      <div class="text-sm font-semibold text-slate-700 mb-1">Replace targets (.xlsx)</div>
+      <p class="text-xs text-slate-500 mb-3">Re-upload a corrected base file into THIS campaign. <strong>Replaces</strong> the target lines and re-resolves store codes. Evidence photos are kept.</p>
+      <%= form_with url: reimport_display_campaign_path(@campaign), method: :post, local: true, multipart: true, class: "flex items-center gap-2" do %>
+        <%= file_field_tag :file, accept: ".xlsx", class: "block text-sm text-slate-600" %>
+        <%= submit_tag "Replace targets", class: "shrink-0 rounded-md border border-slate-300 text-sm font-semibold px-4 py-2 hover:bg-slate-50 cursor-pointer" %>
+      <% end %>
+    </div>
   </div>
 <% end %>
 

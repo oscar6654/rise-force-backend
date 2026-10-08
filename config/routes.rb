@@ -78,6 +78,8 @@ Rails.application.routes.draw do
   resources :display_campaigns, only: [:index, :new, :create, :show, :destroy] do
     member do
       post :evidence
+      post :reimport
+      post :relink
       get :unmatched
       get "stores/:store_id", action: :store, as: :store
     end
