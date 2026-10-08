@@ -16,7 +16,7 @@
       compliance
     </label>
     <%= submit_tag "Filter", class: "rounded-md border border-slate-300 text-sm px-3 py-2 hover:bg-slate-50 cursor-pointer" %>
-    <span class="text-xs text-slate-500 ml-auto"><%= @total_below %> of <%= @total_with_assortment %> stores below <%= @threshold %>%</span>
+    <span class="text-xs text-slate-500 ml-auto">This page: <%= @total_below %> of <%= @total_with_assortment %> stores below <%= @threshold %>% · <%= @sellers.total_count %> sellers</span>
   <% end %>
 
   <div class="overflow-x-auto">
@@ -28,19 +28,25 @@
       </tr></thead>
       <tbody>
         <% @groups.each do |g| %>
-          <% sid = g[:seller]&.id || "unassigned" %>
+          <% sid = g[:seller_id] || "unassigned" %>
           <% link = compliance_path(sid, request.query_parameters.except(:page)) %>
           <tr class="border-b border-slate-100 hover:bg-slate-50 cursor-pointer" onclick="window.location='<%= link %>'">
             <td class="px-4 py-3"><div class="text-sm font-medium text-[#1f4b99]"><%= g[:seller]&.name || "Unassigned" %></div><div class="text-[11px] text-slate-400"><%= g[:seller]&.branch&.name %></div></td>
-            <td class="px-4 py-3 text-right"><span class="rounded px-2 py-0.5 text-xs font-semibold bg-red-50 text-red-700"><%= g[:count] %></span></td>
-            <td class="px-4 py-3 text-right font-mono text-sm <%= g[:avg] >= 75 ? 'text-amber-700' : 'text-red-600' %>"><%= g[:avg] %>%</td>
-            <td class="px-4 py-3 text-sm text-slate-600"><%= g[:worst][:store].name %> <span class="text-[11px] text-slate-400">(<%= g[:worst][:pct] %>%)</span></td>
+            <% if g[:count].positive? %>
+              <td class="px-4 py-3 text-right"><span class="rounded px-2 py-0.5 text-xs font-semibold bg-red-50 text-red-700"><%= g[:count] %></span><span class="text-[11px] text-slate-400"> / <%= g[:total] %></span></td>
+              <td class="px-4 py-3 text-right font-mono text-sm <%= g[:avg] >= 75 ? 'text-amber-700' : 'text-red-600' %>"><%= g[:avg] %>%</td>
+              <td class="px-4 py-3 text-sm text-slate-600"><%= g[:worst][:store].name %> <span class="text-[11px] text-slate-400">(<%= g[:worst][:pct] %>%)</span></td>
+            <% else %>
+              <td class="px-4 py-3 text-right"><span class="rounded px-2 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-700">0</span><span class="text-[11px] text-slate-400"> / <%= g[:total] %></span></td>
+              <td class="px-4 py-3 text-right text-sm text-slate-400">—</td>
+              <td class="px-4 py-3 text-sm text-slate-400"><%= g[:total].positive? ? "All stores at or above #{@threshold}%" : "No must-stock assortment" %></td>
+            <% end %>
             <td class="px-4 py-3 text-right text-slate-300 pr-4">›</td>
           </tr>
         <% end %>
-        <% if @groups.empty? %><tr><td colspan="5" class="px-4 py-8 text-center text-sm text-slate-500">No stores below <%= @threshold %>% — full compliance, or no must-stock assortment defined.</td></tr><% end %>
+        <% if @groups.empty? %><tr><td colspan="5" class="px-4 py-8 text-center text-sm text-slate-500">No sellers with active stores in this filter.</td></tr><% end %>
       </tbody>
     </table>
   </div>
-  <div class="px-4 py-3"><%= paginate @groups if respond_to?(:paginate) %></div>
+  <div class="px-4 py-3"><%= paginate @sellers if respond_to?(:paginate) %></div>
 </div>

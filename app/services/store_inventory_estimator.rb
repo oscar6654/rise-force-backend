@@ -48,9 +48,10 @@ class StoreInventoryEstimator
     deliveries = monthly_deliveries
     transit = in_transit_pieces
     cover = cover_days
+    reps = representatives_for(series.keys)
 
     series.filter_map do |pid, points|
-      rep = representative(pid)
+      rep = reps[pid]
       next unless rep
 
       per = rep.pcs_per_case.to_i
@@ -91,11 +92,13 @@ class StoreInventoryEstimator
 
   def offtake_analysis(from: nil, to: nil)
     deliveries = monthly_deliveries
-    stock_series.filter_map do |pid, all_points|
+    series = stock_series
+    reps = representatives_for(series.keys)
+    series.filter_map do |pid, all_points|
       points = all_points.select { |d, _| (from.nil? || d >= from) && (to.nil? || d <= to) }
       next if points.size < 2
 
-      rep = representative(pid)
+      rep = reps[pid]
       next unless rep
 
       bc = rep.it_barcode.to_s.strip
@@ -189,13 +192,14 @@ class StoreInventoryEstimator
   # rep_product_id => pieces already ordered (SFA) but not yet invoiced.
   def in_transit_pieces
     h = Hash.new(0.to_d)
-    OrderLine.joins(:order).includes(:product)
-             .where(orders: { store_id: @store.id, status: %i[submitted batched downloaded] })
-             .find_each do |l|
+    lines = OrderLine.joins(:order).includes(:product)
+                     .where(orders: { store_id: @store.id, status: %i[submitted batched downloaded] }).to_a
+    reps = representatives_for(lines.map(&:product_id).uniq)
+    lines.each do |l|
       p = l.product
       next unless p
 
-      rep = (p.it_barcode.present? && Product.representative_for(p.it_barcode)) || p
+      rep = reps[p.id] || p
       per = p.pcs_per_case.to_i
       per = 1 if per <= 0
       h[rep.id] += l.uom.to_s.include?("case") ? l.quantity * per : l.quantity
@@ -203,10 +207,17 @@ class StoreInventoryEstimator
     h
   end
 
-  def representative(pid)
-    p = Product.find_by(id: pid)
-    return nil unless p
-
-    (p.it_barcode.present? && Product.representative_for(p.it_barcode)) || p
+  # product_id => its catalog representative (Product.representative_for its
+  # barcode, else the product itself), in two queries rather than two per SKU.
+  def representatives_for(pids)
+    products = Product.where(id: pids).to_a
+    barcodes = products.map(&:it_barcode).select(&:present?).uniq
+    by_barcode = {}
+    if barcodes.any?
+      Product.active.where(it_barcode: barcodes)
+             .order(Arel.sql("it_barcode, case_cost DESC NULLS LAST, item_cost DESC NULLS LAST, sku ASC"))
+             .each { |p| by_barcode[p.it_barcode] ||= p }
+    end
+    products.to_h { |p| [p.id, (p.it_barcode.present? && by_barcode[p.it_barcode]) || p] }
   end
 end

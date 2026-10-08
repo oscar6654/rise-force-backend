@@ -30,7 +30,8 @@ module Api
         # Barcode-less SKUs pass through individually.
         rep_ids = Product.barcode_representative_ids.values.to_set
         chan_by_barcode = Product.channel_ids_by_barcode
-        scope = since_scope(Product.includes(:brand, :product_category, :product_tier, :product_channels).where(status: :active))
+        scope = since_scope(Product.includes(:brand, :product_category, :product_tier, :product_channels, photo_attachment: :blob)
+                                   .where(status: :active))
         rows = scope.select { |p| p.it_barcode.blank? || rep_ids.include?(p.id) }.map do |p|
           # channel_ids empty = universal (visible in every channel); non-empty =
           # only those channels. Union across the barcode group so collapsing

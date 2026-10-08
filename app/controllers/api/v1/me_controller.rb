@@ -45,8 +45,7 @@ module Api
         # Must-carry across today's planned stores (bounded set = the route).
         must = 0
         carried = 0
-        planned.each do |s|
-          c = s.assortment_compliance
+        Store.assortment_compliance_for(planned).each_value do |c|
           next unless c
 
           must += c[:must]

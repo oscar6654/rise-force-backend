@@ -100,12 +100,16 @@ class IncentiveCalculator
     payout = scheme.cfg[:payout_per_store].to_d
     completed_confirmed = 0
     completed_projected = 0
-    seller_stores.find_each do |store|
-      c = store.assortment_compliance(on: @month, type_code: type)
-      next unless c && c[:must].positive?
-
-      completed_projected += 1 if c[:carried] >= c[:must]
-      completed_confirmed += 1 if c[:carried] >= c[:must] && store.active_in_vcsi?(@month)
+    results = {}
+    seller_stores.find_in_batches(batch_size: 1000) do |batch|
+      results.merge!(Store.assortment_compliance_for(batch, on: @month, type_code: type))
+    end
+    completed = results.select { |_id, c| c && c[:must].positive? && c[:carried] >= c[:must] }.keys
+    if completed.any?
+      completed_projected = completed.size
+      # Same test as Store#active_in_vcsi?, batched.
+      completed_confirmed = SelloutSnapshot.where(store_id: completed, seller_id: nil, period_type: :mtd, period_date: @month)
+                                           .group(:store_id).sum(:amount).count { |_id, amt| amt.to_d.positive? }
     end
     base(scheme, completed_confirmed * payout, completed_projected * payout,
          { assortment_type: type, stores_completed: completed_projected, payout_per_store: payout.to_f })

@@ -78,8 +78,9 @@ class SellerIntelligence
     # Must-stock gaps only for the top candidates (assortment resolution is the
     # expensive per-store bit) — bounds the query cost.
     ranked = scored.select { |s| s[:reasons].any? }.sort_by { |s| -s[:score] }.first(limit)
+    compliance = Store.assortment_compliance_for(ranked.map { |r| r[:store] })
     ranked.each do |row|
-      gaps = row[:store].assortment_compliance
+      gaps = compliance[row[:store].id]
       next unless gaps && gaps[:carried] < gaps[:must]
 
       missing = gaps[:must] - gaps[:carried]

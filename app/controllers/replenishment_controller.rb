@@ -52,9 +52,10 @@ class ReplenishmentController < ApplicationController
       csv << ["Store code", "Store", "Branch", "Seller", "Last checked", "Next visit",
               "SKUs", "SKUs to reorder", "Total suggested cases", "Offtake-learned SKUs"]
       stores.find_each do |s|
-        rows = StoreInventoryEstimator.new(s).rows
+        est = StoreInventoryEstimator.new(s)
+        rows = est.rows
         csv << [s.code, s.name, s.branch&.name, s.assigned_seller&.name,
-                s.last_stock_checked_at&.to_date, StoreInventoryEstimator.new(s).next_visit_on,
+                s.last_stock_checked_at&.to_date, est.next_visit_on,
                 rows.size, rows.count { |r| r.suggested_cases.positive? },
                 rows.sum(&:suggested_cases), rows.count { |r| r.basis == "offtake" }]
       end

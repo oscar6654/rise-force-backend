@@ -141,8 +141,8 @@ module Api
       # Pool each store's per-type compliance across the seller's (group's) stores.
       def seller_assortment_by_type(ids)
         agg = {}
-        group_stores(ids).includes(:store_category).limit(300).find_each do |s|
-          s.assortment_by_type.each do |row|
+        Store.assortment_by_type_for(group_stores(ids).order(:id).limit(300)).each_value do |rows|
+          rows.each do |row|
             a = (agg[row[:type_code]] ||= { type_name: row[:type_name], must: 0, carried: 0 })
             a[:must] += row[:must]
             a[:carried] += row[:carried]

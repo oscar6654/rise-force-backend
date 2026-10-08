@@ -85,8 +85,12 @@ class Store < ApplicationRecord
   # Distribution is measured by unique PRODUCT (it_barcode), not item_key: many
   # item_keys (pack sizes / variants) share one barcode and count as a single
   # distribution point. A SKU with no barcode counts on its own.
-  def dist_key(barcode, product_id)
+  def self.dist_key(barcode, product_id)
     barcode.present? ? "b:#{barcode.strip}" : "p:#{product_id}"
+  end
+
+  def dist_key(barcode, product_id)
+    Store.dist_key(barcode, product_id)
   end
 
   # Must-stock products resolved for this store, as [product_id, it_barcode,
@@ -157,7 +161,27 @@ class Store < ApplicationRecord
   # (monthly / quarterly / half-year), so a quarterly target counts a SKU carried
   # anytime in the quarter. Pass `since:` to force a single window (legacy).
   def assortment_compliance(type_code: nil, on: Date.current, since: nil)
-    raw = must_stock_raw(type_code: type_code, on: on)
+    by_key = Store.must_stock_index(must_stock_raw(type_code: type_code, on: on), on: on, since: since)
+    by_key && Store.tally_compliance(by_key) { |w| carried_dist_keys(since: w) }
+  end
+
+  # Batch form of #assortment_compliance for many stores at once, in a fixed
+  # number of queries instead of ~5 per store (16k stores => minutes per page).
+  # Returns { store_id => compliance hash, or nil if no must-stock }.
+  def self.assortment_compliance_for(stores, type_code: nil, on: Date.current, since: nil)
+    batch = MustStockBatch.new(stores, type_code: type_code, on: on, since: since)
+    indexes = {} # stores matching the same assortments share one must-stock index
+    batch.stores.to_h do |s|
+      by_key = indexes.fetch(batch.assortment_key(s)) do |key|
+        indexes[key] = must_stock_index(batch.raw_for(key), on: on, since: since, windows: batch.windows)
+      end
+      [s.id, by_key && tally_compliance(by_key) { |w| batch.carried(s, w) }]
+    end
+  end
+
+  # Must-stock rows (must_stock_raw's shape) deduped into
+  # { dist_key => { rep_id:, rep_cc:, window: } }, or nil if there are none.
+  def self.must_stock_index(raw, on:, since:, windows: {})
     return nil if raw.empty?
 
     # Dedupe by distribution key (barcode); representative = highest case_cost;
@@ -165,7 +189,7 @@ class Store < ApplicationRecord
     by_key = {}
     raw.each do |_code, _name, reset_m, pid, bc, cc|
       key = dist_key(bc, pid)
-      w = since || Assortment.window_start_for(reset_m, on)
+      w = since || (windows[reset_m] ||= Assortment.window_start_for(reset_m, on))
       g = (by_key[key] ||= { rep_id: pid, rep_cc: cc.to_f, window: w })
       if cc.to_f > g[:rep_cc]
         g[:rep_id] = pid
@@ -173,12 +197,17 @@ class Store < ApplicationRecord
       end
       g[:window] = w if w < g[:window]
     end
+    by_key
+  end
 
+  # Counts a must-stock index against what the store carries; the block
+  # returns the carried key Set for a window start.
+  def self.tally_compliance(by_key)
     carried_cache = {}
     carried_count = 0
     gap_ids = []
     by_key.each do |key, g|
-      set = (carried_cache[g[:window]] ||= carried_dist_keys(since: g[:window]))
+      set = (carried_cache[g[:window]] ||= yield(g[:window]))
       set.include?(key) ? (carried_count += 1) : (gap_ids << g[:rep_id])
     end
     { must: by_key.size, carried: carried_count,
@@ -189,24 +218,50 @@ class Store < ApplicationRecord
   # distinct reset window, so types/assortments on different cycles are correct.
   # Returns [{ type_code, type_name, must, carried, pct }] for types with must-stock.
   def assortment_by_type(on: Date.current, since: nil)
-    raw = must_stock_raw(on: on)
-    return [] if raw.empty?
+    types = Store.type_index(must_stock_raw(on: on), on: on, since: since)
+    return [] if types.empty?
 
-    types = {} # code => { keys: { dist_key => earliest window } }
+    Store.tally_by_type(types, AssortmentType.enabled.ordered.to_a) { |w| carried_dist_keys(since: w) }
+  end
+
+  # Batch form of #assortment_by_type: { store_id => [rows] } in a fixed number
+  # of queries.
+  def self.assortment_by_type_for(stores, on: Date.current, since: nil)
+    batch = MustStockBatch.new(stores, on: on, since: since)
+    enabled = nil
+    indexes = {}
+    batch.stores.to_h do |s|
+      types = indexes.fetch(batch.assortment_key(s)) do |key|
+        indexes[key] = type_index(batch.raw_for(key), on: on, since: since, windows: batch.windows)
+      end
+      next [s.id, []] if types.empty?
+
+      enabled ||= AssortmentType.enabled.ordered.to_a
+      [s.id, tally_by_type(types, enabled) { |w| batch.carried(s, w) }]
+    end
+  end
+
+  # Must-stock rows grouped per type: { type_code => { dist_key => earliest window } }.
+  def self.type_index(raw, on:, since:, windows: {})
+    types = {}
     raw.each do |code, _name, reset_m, pid, bc, _cc|
       key = dist_key(bc, pid)
-      w = since || Assortment.window_start_for(reset_m, on)
+      w = since || (windows[reset_m] ||= Assortment.window_start_for(reset_m, on))
       keys = (types[code] ||= {})
       cur = keys[key]
       keys[key] = cur && cur < w ? cur : w
     end
+    types
+  end
 
+  # The block returns the carried key Set for a window start.
+  def self.tally_by_type(types, enabled_types)
     carried_cache = {}
-    AssortmentType.enabled.ordered.filter_map do |t|
+    enabled_types.filter_map do |t|
       keys = types[t.code]
       next if keys.blank?
 
-      carried = keys.count { |key, w| (carried_cache[w] ||= carried_dist_keys(since: w)).include?(key) }
+      carried = keys.count { |key, w| (carried_cache[w] ||= yield(w)).include?(key) }
       { type_code: t.code, type_name: t.name, must: keys.size, carried: carried,
         pct: (carried * 100.0 / keys.size).round }
     end

@@ -63,7 +63,7 @@ class BranchLeaderboard
     when 'incentive'
       ids.sum { |sid| IncentiveCalculator.new(Seller.find(sid), month: @month).call[:confirmed_total].to_i }
     when 'assortment'
-      assortment_score(ids, assortment_type)
+      assortment_scores(assortment_type)[seller.id]
     end
   end
 
@@ -71,19 +71,24 @@ class BranchLeaderboard
   # carried / total must-stock barcodes, as a percentage. A single store rarely
   # hits 100%, so pooling every store gives a fair running figure — e.g. 1/86 at
   # one store and 0/86 at another reads 1 / 172 ≈ 1%. `type_code` scopes to one
-  # assortment type; nil = all types merged.
-  def assortment_score(ids, type_code = nil)
-    stores = Store.where(seller_id: ids).or(Store.where(route_id: Route.where(seller_id: ids).select(:id)))
-                  .where.not(vcsi_customer_ref: [nil, '']).limit(300)
-    must = 0
-    carried = 0
-    stores.each do |s|
-      c = s.assortment_compliance(on: @month, type_code: type_code)
-      next unless c
-
-      must += c[:must]
-      carried += c[:carried]
+  # assortment type; nil = all types merged. Computed for every entrant in one
+  # batch (per-store compliance across a branch's sellers took minutes).
+  # => { seller_id => pct }
+  def assortment_scores(type_code = nil)
+    @assortment_scores ||= {}
+    @assortment_scores[type_code] ||= begin
+      stores_by_seller = @sellers.to_h do |s|
+        ids = s.login_group_ids
+        [s.id, Store.where(seller_id: ids).or(Store.where(route_id: Route.where(seller_id: ids).select(:id)))
+                    .where.not(vcsi_customer_ref: [nil, '']).limit(300).to_a]
+      end
+      results = Store.assortment_compliance_for(stores_by_seller.values.flatten.uniq(&:id),
+                                                on: @month, type_code: type_code)
+      stores_by_seller.transform_values do |stores|
+        cs = stores.filter_map { |st| results[st.id] }
+        must = cs.sum { |c| c[:must] }
+        must.positive? ? (cs.sum { |c| c[:carried] } * 100.0 / must).round : 0
+      end
     end
-    must.positive? ? (carried * 100.0 / must).round : 0
   end
 end
