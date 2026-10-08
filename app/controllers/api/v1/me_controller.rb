@@ -146,13 +146,17 @@ module Api
         render json: { data: { campaigns: display_campaigns_payload(ids) }, meta: meta }
       end
 
-      # GET /api/v1/me/display_targets/stores/:store_id?campaign_id=
+      # GET /api/v1/me/display_targets/stores/:store_id → all live campaigns for it.
       def display_store
         store = Store.find(params[:store_id])
         return render_unauthorized unless display_store_ids_for(current_group_ids).include?(store.id)
 
-        campaign = DisplayCampaign.find(params[:campaign_id])
-        render json: { data: display_store_detail(campaign, store), meta: meta }
+        render json: { data: display_store_detail(store), meta: meta }
+      end
+
+      # GET /api/v1/me/display_targets/summary → { store_id => missing } for badges.
+      def display_summary
+        render json: { data: display_store_summary(display_store_ids_for(current_group_ids)), meta: meta }
       end
 
       # GET /api/v1/me/call_list?date=YYYY-MM-DD

@@ -152,6 +152,7 @@ Rails.application.routes.draw do
       get "me/leaderboard" => "me#leaderboard"
       get "me/assortment_types" => "me#assortment_types"
       get "me/display_targets" => "me#display_targets"
+      get "me/display_targets/summary" => "me#display_summary"
       get "me/display_targets/stores/:store_id" => "me#display_store"
     end
   end

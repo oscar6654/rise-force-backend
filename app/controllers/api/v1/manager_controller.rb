@@ -87,14 +87,13 @@ module Api
         render json: { data: { campaigns: display_campaigns_payload(display_team_store_ids.to_a) }, meta: meta }
       end
 
-      # GET /api/v1/manager/display/stores/:store_id?campaign_id=  → one store's
-      # target lines with execution photos.
+      # GET /api/v1/manager/display/stores/:store_id → one store across all live
+      # campaigns, with target lines + execution photos.
       def display_store
         store = Store.find(params[:store_id])
         return render_unauthorized unless display_team_store_ids.include?(store.id)
 
-        campaign = DisplayCampaign.find(params[:campaign_id])
-        render json: { data: display_store_detail(campaign, store), meta: meta }
+        render json: { data: display_store_detail(store), meta: meta }
       end
 
       private

@@ -42,18 +42,26 @@ RSpec.describe "Display targets (app views)", type: :request do
     expect(row["pct"]).to eq(50)
   end
 
-  it "manager drills into a store and sees photos + missing lines" do
+  it "manager drills into a store and sees photos + missing lines (all live campaigns)" do
     token = login("MGR1", "9999")["access_token"]
-    get "/api/v1/manager/display/stores/#{store.id}", params: { campaign_id: campaign.id },
-        headers: { "Authorization" => "Bearer #{token}" }
+    get "/api/v1/manager/display/stores/#{store.id}", headers: { "Authorization" => "Bearer #{token}" }
     d = JSON.parse(response.body)["data"]
     expect(d["done"]).to eq(1)
-    shelf = d["lines"].find { |l| l["promotion_name"] == "P_SHELF" }
+    lines = d["campaigns"].first["lines"]
+    shelf = lines.find { |l| l["promotion_name"] == "P_SHELF" }
     expect(shelf["executed"]).to be(true)
     expect(shelf["photos"].first["image_url"]).to eq("https://x/a.jpg")
-    disp = d["lines"].find { |l| l["promotion_name"] == "P_DISP" }
+    disp = lines.find { |l| l["promotion_name"] == "P_DISP" }
     expect(disp["executed"]).to be(false)
     expect(disp["photos"]).to be_empty
+  end
+
+  it "the seller display summary reports missing counts per store (route badges)" do
+    seller.update!(pin: "1234")
+    token = login(seller.seller_code, "1234")["access_token"]
+    get "/api/v1/me/display_targets/summary", headers: { "Authorization" => "Bearer #{token}" }
+    expect(response).to have_http_status(:ok)
+    expect(JSON.parse(response.body)["data"][store.id.to_s]).to eq(1)
   end
 
   it "the seller sees their own store's targets" do
