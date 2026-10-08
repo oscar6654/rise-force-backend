@@ -1,10 +1,10 @@
 require "csv"
 
 class DisplayCampaignsController < ApplicationController
-  before_action -> { authorize!(:display_campaign, :view) }, only: [:index, :show, :store]
+  before_action -> { authorize!(:display_campaign, :view) }, only: [:index, :show, :store, :unmatched]
   before_action -> { authorize!(:display_campaign, :create) }, only: [:new, :create, :evidence]
   before_action -> { authorize!(:display_campaign, :destroy) }, only: [:destroy]
-  before_action :set_campaign, only: [:show, :destroy, :evidence, :store]
+  before_action :set_campaign, only: [:show, :destroy, :evidence, :store, :unmatched]
 
   def index
     @campaigns = DisplayCampaign.order(created_at: :desc)
@@ -66,12 +66,24 @@ class DisplayCampaignsController < ApplicationController
     end.sort_by { |x| [-x[:missing], x[:name].to_s] }
     @targets_count = @campaign.display_targets.count
     @evidence_count = @campaign.display_evidences.count
-    @unmatched_targets = @campaign.display_targets.where(store_id: nil).distinct.count(:store_code)
+    # Store codes from the xlsx that aren't in our store master → they can't
+    # appear in the seller/manager app until the store is added/linked.
+    @unmatched_codes = @campaign.display_targets.where(store_id: nil).distinct.order(:store_code).pluck(:store_code)
 
     respond_to do |format|
       format.html
       format.csv { send_data report_csv(@rows), filename: "display_targets_#{@campaign.id}.csv", type: "text/csv" }
     end
+  end
+
+  # Downloadable list of store codes that didn't match the store master.
+  def unmatched
+    codes = @campaign.display_targets.where(store_id: nil).distinct.order(:store_code).pluck(:store_code)
+    csv = CSV.generate do |c|
+      c << %w[unmatched_store_code]
+      codes.each { |code| c << [code] }
+    end
+    send_data csv, filename: "unmatched_stores_#{@campaign.id}.csv", type: "text/csv"
   end
 
   # Per-store drill: each target line with its execution status + photos.

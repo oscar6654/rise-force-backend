@@ -15,12 +15,27 @@
     <div class="text-xs text-slate-400 uppercase tracking-wide">Evidence photos</div>
     <div class="text-xl font-bold text-slate-800 mt-1 tabular-nums"><%= @evidence_count %></div>
   </div>
-  <div class="rounded-xl border border-slate-200 bg-white p-4">
+  <div class="rounded-xl border <%= @unmatched_codes.any? ? "border-amber-300 bg-amber-50" : "border-slate-200 bg-white" %> p-4">
     <div class="text-xs text-slate-400 uppercase tracking-wide">Unmatched store codes</div>
-    <div class="text-xl font-bold text-slate-800 mt-1 tabular-nums"><%= @unmatched_targets %></div>
+    <div class="text-xl font-bold <%= @unmatched_codes.any? ? "text-amber-700" : "text-slate-800" %> mt-1 tabular-nums"><%= @unmatched_codes.size %></div>
     <div class="text-[11px] text-slate-400">not in store master</div>
+    <% if @unmatched_codes.any? %>
+      <%= link_to "↓ Download list", unmatched_display_campaign_path(@campaign), class: "text-[11px] font-semibold text-[#1f4b99] hover:underline" %>
+    <% end %>
   </div>
 </div>
+
+<% if @unmatched_codes.any? %>
+  <details class="rounded-xl border border-amber-300 bg-amber-50 p-4 mb-5">
+    <summary class="cursor-pointer text-sm font-semibold text-amber-800"><%= @unmatched_codes.size %> store code(s) in the file aren't in your store master — these stores won't show in the app until added/linked</summary>
+    <p class="text-xs text-amber-700 mt-2">Add these <code>store_code</code>s to the <%= link_to "Store master", stores_path, class: "underline" %> (or fix the code), then re-upload the xlsx.</p>
+    <div class="flex flex-wrap gap-1.5 mt-3">
+      <% @unmatched_codes.each do |code| %>
+        <span class="inline-flex items-center px-2 py-0.5 rounded bg-white border border-amber-300 text-xs font-mono text-amber-800"><%= code %></span>
+      <% end %>
+    </div>
+  </details>
+<% end %>
 
 <% if can?(:display_campaign, :create) %>
   <div class="rounded-xl border border-slate-200 bg-white p-4 mb-5">
