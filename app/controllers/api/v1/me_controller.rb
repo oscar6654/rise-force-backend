@@ -2,6 +2,7 @@ module Api
   module V1
     class MeController < BaseController
       include DisplayApi
+      include SellerPerformanceApi
       # GET /api/v1/me/targets?period=mtd
       def targets
         month = Date.current.beginning_of_month
@@ -158,6 +159,49 @@ module Api
         render json: { data: display_store_summary(display_store_ids_for(current_group_ids)), meta: meta }
       end
 
+      # GET /api/v1/me/performance → the seller's OWN page: KPI + assortment-by-type
+      # + per-store performance (the same view a manager sees when drilling into
+      # this seller), scoped to the seller's login group.
+      def performance
+        month = Date.current.beginning_of_month
+        ids = current_group_ids
+        render json: { data: {
+          seller: seller_kpi(current_seller, month),
+          assortment: seller_assortment_by_type(ids),
+          stores: store_perf(ids, month),
+        }, meta: meta }
+      end
+
+      # GET /api/v1/me/stores/:id/insights → per-store deep analytics for a store
+      # the seller services (live from vcsi).
+      def store_insights
+        store = Store.find(params[:id])
+        return render_unauthorized unless group_store_ids(current_group_ids).include?(store.id)
+
+        reps = Seller.where(id: current_group_ids).where.not(vcsi_sales_rep_ref: [nil, ""])
+                     .distinct.pluck(:vcsi_sales_rep_ref)
+        month = self_report_month
+        ttl = SystemSetting.get("manager_insights_cache_seconds", 300).to_i
+        data = Rails.cache.fetch("self_store_insights/#{store.id}/#{month.strftime('%Y%m')}", expires_in: ttl.seconds) do
+          ManagerInsights.new(rep_codes: reps, customer_id: store.vcsi_customer_ref, month: month).call
+        end
+        render json: { data: data, meta: meta }
+      end
+
+      # GET /api/v1/me/insights?month=YYYY-MM → the seller's OWN deep analytics
+      # (live from vcsi): daily sales trend, top products, by category/brand — the
+      # same view a manager sees for this seller, scoped to the seller's rep codes.
+      def insights
+        reps = Seller.where(id: current_group_ids).where.not(vcsi_sales_rep_ref: [nil, ""])
+                     .distinct.pluck(:vcsi_sales_rep_ref)
+        month = self_report_month
+        ttl = SystemSetting.get("manager_insights_cache_seconds", 300).to_i
+        data = Rails.cache.fetch("self_insights/#{current_seller.id}/#{month.strftime('%Y%m')}", expires_in: ttl.seconds) do
+          ManagerInsights.new(rep_codes: reps, month: month).call
+        end
+        render json: { data: data, meta: meta }
+      end
+
       # GET /api/v1/me/call_list?date=YYYY-MM-DD
       def call_list
         date = params[:date].present? ? Date.parse(params[:date]) : Date.current
@@ -194,6 +238,16 @@ module Api
         end
         rows = due.map { |s| row.call(s, false) } + off_stores.map { |s| row.call(s, true) }
         render json: { data: rows, meta: meta.merge(date: date) }
+      end
+
+      private
+
+      # ?month=YYYY-MM (default current month) so the seller can look back.
+      def self_report_month
+        m = params[:month].to_s
+        m.match?(/\A\d{4}-\d{2}\z/) ? Date.parse("#{m}-01") : Date.current.beginning_of_month
+      rescue ArgumentError
+        Date.current.beginning_of_month
       end
     end
   end
