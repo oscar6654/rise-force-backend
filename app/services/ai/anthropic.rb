@@ -45,6 +45,11 @@ module Ai
       req["content-type"] = "application/json"
       req.body = {
         model: @model, max_tokens: max_tokens, system: system,
+        # These are short formatting tasks — disable extended thinking so the
+        # whole token budget goes to the answer. On Haiku 5.5 thinking is ON by
+        # default and, under a tight max_tokens, can consume the entire budget
+        # (stop_reason "max_tokens") leaving an EMPTY text block.
+        thinking: { type: "disabled" },
         messages: [{ role: "user", content: prompt }],
       }.to_json
 
