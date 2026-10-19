@@ -99,7 +99,9 @@ module Api
           streak_best: streak[:best],
           day_goal_met: day.goal_met,
           day_goal_target: planned.size,                                  # stores due today
-          day_goal_done: visited_planned                                  # planned stores visited
+          day_goal_done: visited_planned,                                 # planned stores visited
+          ai_plan: (plan = AiBrief.record_for(seller, "seller_plan"))&.body, # AI game plan (nil if off)
+          ai_plan_at: plan&.updated_at                                    # freshness stamp
         }, meta: meta }
       end
 
@@ -172,6 +174,16 @@ module Api
         }, meta: meta }
       end
 
+      # GET /api/v1/me/stores/:id/pitch → one-line AI pitch for an own store
+      # (cached daily; nil when AI is off).
+      def store_pitch
+        store = Store.find(params[:id])
+        return render_unauthorized unless group_store_ids(current_group_ids).include?(store.id)
+
+        text = AiBrief.current(store, "store_pitch") || Ai::Briefs.store_pitch(store)
+        render json: { data: { pitch: text }, meta: meta }
+      end
+
       # GET /api/v1/me/stores/:id/insights → per-store deep analytics for a store
       # the seller services (live from vcsi).
       def store_insights
@@ -197,7 +209,9 @@ module Api
         month = self_report_month
         ttl = SystemSetting.get("manager_insights_cache_seconds", 300).to_i
         data = Rails.cache.fetch("self_insights/#{current_seller.id}/#{month.strftime('%Y%m')}", expires_in: ttl.seconds) do
-          ManagerInsights.new(rep_codes: reps, month: month).call
+          d = ManagerInsights.new(rep_codes: reps, month: month).call
+          d[:narrative] = Ai::Briefs.insights_narrative(d) if Ai::Anthropic.enabled?
+          d
         end
         render json: { data: data, meta: meta }
       end

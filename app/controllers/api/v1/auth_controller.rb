@@ -128,7 +128,8 @@ module Api
       def seller_json(seller, role = "seller")
         { id: seller.id, code: (role == "diser" ? seller.diser_code : seller.seller_code),
           name: (role == "diser" ? (seller.diser_name.presence || seller.name) : seller.name),
-          branch_id: seller.branch_id, role: role }
+          branch_id: seller.branch_id, role: role,
+          delivery_date_required: (role == "seller" && seller.delivery_date_required?) }
       end
     end
   end

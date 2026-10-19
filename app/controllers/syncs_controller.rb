@@ -9,12 +9,16 @@ class SyncsController < ApplicationController
     "targets"           => "Vcsi::TargetSyncJob",
     "store_sellout"     => "Vcsi::StoreSelloutSyncJob",
     "store_sku_sellout" => "Vcsi::StoreSkuSelloutSyncJob",
-    "store_targets"     => "Vcsi::StoreTargetComputeJob"
+    "store_targets"     => "Vcsi::StoreTargetComputeJob",
+    # AI assist — run AFTER the vcsi syncs above so they use fresh data.
+    "ai_briefs"         => "Ai::DailyBriefsJob",
+    "ai_weekly"         => "Ai::WeeklyRoundupJob"
   }.freeze
 
-  # These pull a large per-SKU payload, so run them in the background (the Logs
-  # page auto-refreshes to show progress) instead of blocking the request.
-  BACKGROUND = %w[store_sku_sellout].freeze
+  # These run in the background (the Logs page auto-refreshes to show progress)
+  # instead of blocking the request: the SKU pull is large; AI briefs make one
+  # API call per seller/manager.
+  BACKGROUND = %w[store_sku_sellout ai_briefs ai_weekly].freeze
 
   # Trigger a vcsi_rise sync on demand. Light syncs run inline so they work
   # without a separate worker; heavy ones enqueue (solid_queue in prod, async

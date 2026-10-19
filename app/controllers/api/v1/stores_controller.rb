@@ -57,10 +57,17 @@ module Api
 
         # For the Catalog type filter chips: which product_ids belong to each
         # assortment type for this store (the full must-stock set, not just gaps).
+        # Must map each must-stock SKU to the barcode REPRESENTATIVE the app's
+        # catalog (/sync/products) actually carries — a must-stock sibling whose
+        # barcode representative is a different pack is otherwise invisible in
+        # order-taking (the catalog collapses to one representative per barcode).
+        rep_by_barcode = Product.barcode_representative_ids
         type_skus = {}
         type_list = []
         AssortmentType.enabled.ordered.each do |t|
-          ids = Assortment.resolved_items_for(@store, type_code: t.code).where(must_stock: true).distinct.pluck(:product_id)
+          rows = Assortment.resolved_items_for(@store, type_code: t.code).where(must_stock: true)
+                           .joins(:product).distinct.pluck("products.id", "products.it_barcode")
+          ids = rows.map { |pid, bc| bc.present? ? (rep_by_barcode[bc] || pid) : pid }.uniq
           next if ids.empty?
 
           type_skus[t.code] = ids

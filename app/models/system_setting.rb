@@ -30,6 +30,12 @@ class SystemSetting < ApplicationRecord
     "assortment_window_mode" => {
       "monthly"  => "Monthly reset — carried restarts each month (recommended)",
       "trailing" => "Trailing window — rolling N days (set “Assortment window days”)"
+    },
+    # Which Claude model powers the AI assist features (cost vs quality).
+    "ai_model" => {
+      "claude-haiku-5-5"  => "Haiku 5.5 — cheapest, great for daily briefs (recommended)",
+      "claude-sonnet-5-5" => "Sonnet 5.5 — sharper judgment, ~20× the cost",
+      "claude-opus-5-5"   => "Opus 5.5 — most capable, highest cost"
     }
   }.freeze
 

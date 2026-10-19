@@ -2,7 +2,21 @@ module Api
   module V1
     class OrdersController < BaseController
       # A diser (stock-check-only role) may never take or preview orders.
-      before_action :deny_diser!, only: [:create, :preview]
+      before_action :deny_diser!, only: [:create, :preview, :sanity]
+
+      # POST /api/v1/orders/sanity → a short AI nudge if the basket looks small
+      # vs the store's usual order. nil otherwise. Only calls the model on an
+      # actual anomaly (basket < 60% of usual), so it's cheap.
+      def sanity
+        return render(json: { data: { nudge: nil }, meta: meta }) unless Ai::Anthropic.enabled?
+
+        store = Store.find(params.require(:store_id))
+        total = PromoEngine.new(store).preview(order_line_inputs)[:total].to_d
+        recent = Order.where(store: store).where.not(status: :cancelled).order(ordered_at: :desc).limit(3).pluck(:total_amount)
+        usual = recent.any? ? (recent.sum / recent.size) : nil
+        nudge = (usual && usual.positive? && total < usual * 0.6) ? Ai::Briefs.order_nudge(store: store, total: total, usual: usual) : nil
+        render json: { data: { nudge: nudge }, meta: meta }
+      end
 
       # POST /api/v1/orders/preview
       # Same body as create, but computes price + earned promo lines + totals +
@@ -45,6 +59,7 @@ module Api
             client_uuid: uuid, seller: order_seller, store: store, branch: store.branch,
             route: store.route, pricing_version_id: resolver.version&.id,
             ordered_at: params[:ordered_at] || Time.current, synced_at: Time.current,
+            delivery_date: params[:delivery_date].presence,
             status: :submitted, notes: params[:notes]
           )
           Array(params[:lines]).each { |line| build_line(order, store, resolver, line) }

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_08_090001) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_19_150001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -41,6 +41,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_08_090001) do
     t.bigint "blob_id", null: false
     t.string "variation_digest", null: false
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
+  end
+
+  create_table "ai_briefs", force: :cascade do |t|
+    t.text "body"
+    t.datetime "created_at", null: false
+    t.string "kind", null: false
+    t.string "model"
+    t.date "period_date", null: false
+    t.bigint "subject_id", null: false
+    t.string "subject_type", null: false
+    t.datetime "updated_at", null: false
+    t.index ["subject_type", "subject_id", "kind", "period_date"], name: "idx_ai_briefs_subject_kind_date", unique: true
+    t.index ["subject_type", "subject_id"], name: "index_ai_briefs_on_subject"
   end
 
   create_table "assortment_items", force: :cascade do |t|
@@ -303,6 +316,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_08_090001) do
     t.bigint "branch_id", null: false
     t.string "client_uuid", null: false
     t.datetime "created_at", null: false
+    t.date "delivery_date"
     t.text "notes"
     t.bigint "order_batch_id"
     t.string "order_number"

@@ -7,7 +7,8 @@ class JobLog < ApplicationRecord
     sellout_sync: 4, stock_sync: 5, target_sync: 6, order_batch_export: 7,
     planned_visit_generation: 8, store_sellout_sync: 9, store_target_compute: 10,
     product_channel_import: 11, promo_import: 12, store_sku_sellout_sync: 13,
-    display_target_import: 14, display_evidence_import: 15
+    display_target_import: 14, display_evidence_import: 15, ai_daily_briefs: 16,
+    ai_weekly_roundup: 17
   }
   enum :status, { pending: 0, running: 1, completed: 2, failed: 3, partial: 4 }, default: :pending
 

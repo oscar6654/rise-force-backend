@@ -11,8 +11,12 @@ module Api
       def team
         month = Date.current.beginning_of_month
         rows = segment_sellers.map { |s| seller_kpi(s, month) }
+        digest = AiBrief.record_for(current_manager, "manager_digest")
+        weekly = AiBrief.record_for(current_manager, "manager_weekly", on: Date.current.beginning_of_week)
         render json: { data: { manager: { name: current_manager.name }, period: month,
-                               totals: team_totals(rows), sellers: rows }, meta: meta }
+                               totals: team_totals(rows), sellers: rows,
+                               ai_digest: digest&.body, ai_digest_at: digest&.updated_at,
+                               ai_weekly: weekly&.body, ai_weekly_at: weekly&.updated_at }, meta: meta }
       end
 
       # GET /api/v1/manager/segment?branch_id=&section=  → a BRANCH or SECTION slice
@@ -156,7 +160,9 @@ module Api
         month = report_month
         ttl = SystemSetting.get("manager_insights_cache_seconds", 300).to_i
         Rails.cache.fetch("mgr_insights/#{key}/#{month.strftime('%Y%m')}", expires_in: ttl.seconds) do
-          ManagerInsights.new(rep_codes: reps, customer_id: customer_id, month: month).call
+          data = ManagerInsights.new(rep_codes: reps, customer_id: customer_id, month: month).call
+          data[:narrative] = Ai::Briefs.insights_narrative(data) if Ai::Anthropic.enabled?
+          data
         end
       end
 

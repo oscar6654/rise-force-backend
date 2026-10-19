@@ -21,6 +21,8 @@ production:
     class: Vcsi::TargetSyncJob
     queue: default
     schedule: "0 6 * * *" # 06:00 daily
+  # NOTE: AI daily briefs are NOT scheduled — they're triggered MANUALLY from
+  # Import Logs so they always run on fresh vcsi_rise data (after a sellout sync).
 
   # Seller actual sellout (GIV*1.12). Refreshed a few times a day as invoice
   # uploads land in vcsi_rise.

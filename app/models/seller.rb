@@ -39,6 +39,15 @@ class Seller < ApplicationRecord
 
   # Leaderboard grouping: trim to nil so blank/whitespace all compete together.
   normalizes :section, with: ->(v) { v.to_s.strip.presence }
+
+  # Whether this seller must capture a delivery date at order review — on only
+  # for the sections listed in SystemSetting `delivery_date_sections`.
+  def delivery_date_required?
+    return false if section.blank?
+
+    SystemSetting.get("delivery_date_sections", "").to_s
+                 .split(",").map(&:strip).reject(&:blank?).include?(section)
+  end
   # A diser code must be distinct from every seller code — otherwise the login
   # resolves to the SELLER (seller_code is matched first) and the diser gets the
   # full app instead of the stock-check-only view.

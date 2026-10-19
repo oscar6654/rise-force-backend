@@ -6,6 +6,16 @@
       <%= button_to label, sync_path(kind), method: :post,
             class: "rounded-md border border-slate-300 bg-white text-slate-700 text-sm font-semibold px-3 py-2 hover:bg-slate-50" %>
     <% end %>
+    <% if SystemSetting.get("ai_features_enabled", "false").to_s == "true" %>
+      <% ai_fresh = JobLog.where(job_type: :store_sellout_sync, status: :completed).where("finished_at >= ?", Time.zone.now.beginning_of_day).exists? %>
+      <% warn = ai_fresh ? "" : "⚠️ No sellout sync has completed today — run the vcsi syncs first, or the AI briefs will use stale numbers.\\n\\n" %>
+      <%= button_to "✨ Generate AI briefs", sync_path("ai_briefs"), method: :post,
+            form: { data: { turbo_confirm: "#{warn}Generate today's seller game plans + manager digests from the latest data? (uses API credits)" } },
+            class: "rounded-md border border-[#1f4b99] bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
+      <%= button_to "✨ Weekly roundup", sync_path("ai_weekly"), method: :post,
+            form: { data: { turbo_confirm: "#{warn}Generate this week's manager roundups? (uses API credits)" } },
+            class: "rounded-md border border-[#1f4b99] bg-white text-[#1f4b99] text-sm font-semibold px-3 py-2 hover:bg-slate-50" %>
+    <% end %>
   <% end %>
 <% end %>
 

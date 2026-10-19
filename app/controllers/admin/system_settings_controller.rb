@@ -5,7 +5,7 @@ module Admin
                   only: [:batch_update, :test_email, :test_connection]
 
     # Ordered tabs shown in the settings UI.
-    TABS = %w[email aws cdn vcsi mobile stores urls company branding features general].freeze
+    TABS = %w[email aws cdn vcsi ai mobile stores urls company branding features general].freeze
 
     def index
       @tabs = TABS

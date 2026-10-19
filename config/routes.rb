@@ -117,6 +117,7 @@ Rails.application.routes.draw do
 
       resources :orders, only: [:create]
       post "orders/preview" => "orders#preview"
+      post "orders/sanity"  => "orders#sanity"
       get "stores/search"                => "stores#search"
       get "stores/:id/order_history"     => "orders#history"
       get "stores/:id/last_stock_counts" => "field_captures#last_stock_counts"
@@ -158,6 +159,7 @@ Rails.application.routes.draw do
       get "me/performance" => "me#performance"
       get "me/insights"   => "me#insights"
       get "me/stores/:id/insights" => "me#store_insights"
+      get "me/stores/:id/pitch" => "me#store_pitch"
       get "me/display_targets" => "me#display_targets"
       get "me/display_targets/summary" => "me#display_summary"
       get "me/display_targets/stores/:store_id" => "me#display_store"

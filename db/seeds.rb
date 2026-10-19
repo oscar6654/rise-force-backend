@@ -266,10 +266,19 @@ seed_setting("app_name",     value: "SFA Console", category: "branding", descrip
 seed_setting("checkin_geofence_mode",     value: "soft", category: "mobile", description: "Check-in location rule — warn (record distance only), soft (require a logged reason when far), or hard (block beyond the radius)")
 seed_setting("checkin_geofence_radius_m", value: "150", type: "integer", category: "mobile", description: "How many metres from the store's pin still counts as “at the store” for check-in")
 
+# Delivery date capture — only sellers in these sections must enter a delivery
+# date at order review (comma-separated section names; blank = off for everyone).
+seed_setting("delivery_date_sections", value: "", category: "stores", description: "Seller sections that require a delivery date at order review (comma-separated; blank = none)")
+
 # store enrollment — sellers pick the channel; the backend assigns this default
 # category so a new store can sell immediately (a reviewer reassigns it later).
 seed_setting("default_enrollment_category", value: "silver", category: "stores", description: "StoreCategory code a newly enrolled store starts on (sets its price list until a reviewer reassigns it)")
 seed_setting("provisional_code_prefix", value: "PROV", category: "stores", description: "Prefix for provisional store codes generated at enrollment")
+
+# AI assist (Claude) — daily seller game plan, manager digest, store pitch, etc.
+seed_setting("anthropic_api_key",   value: "", category: "ai", encrypted: true, description: "Claude API key (sk-ant-…). Set here; never committed to code.")
+seed_setting("ai_model",            value: "claude-haiku-5-5", category: "ai", description: "Claude model for AI assist — Haiku 5.5 is cheapest and fine for briefs")
+seed_setting("ai_features_enabled", value: "false", type: "boolean", category: "ai", description: "Master switch for AI assist features (needs an API key above)")
 
 # feature flags
 seed_setting("feature_gps_mismatch_warn_meters", value: "150", type: "integer", category: "features", description: "Warn when check-in GPS is farther than this from the store")
