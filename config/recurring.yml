@@ -14,6 +14,12 @@ production:
     command: "SolidQueue::Job.clear_finished_in_batches(sleep_between_batches: 0.3)"
     schedule: every hour at minute 12
 
+  # Flip promos to scheduled/active/ended by their date window, so the console
+  # tabs (and status-based queries) stay accurate when a window passes.
+  promo_status_refresh:
+    command: "Promo.refresh_statuses!"
+    schedule: "5 0 * * *" # 00:05 daily
+
   # ---- vcsi_rise syncs (all read-only pulls; source of truth is vcsi_rise) ----
   # Seller master + monthly target, keyed on sales_rep. Once a day is enough
   # (targets change rarely).

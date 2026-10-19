@@ -99,6 +99,13 @@ class Promo < ApplicationRecord
     avails_for(store) < per_store_limit.to_i
   end
 
+  # Flip every non-cancelled promo's stored status to match its dates
+  # (scheduled → active → ended). Idempotent; run daily. Without this a promo
+  # whose end_date has passed stays in the "Active" tab forever.
+  def self.refresh_statuses!(today = Date.current)
+    where.not(status: :cancelled).find_each { |p| p.refresh_status!(today) }
+  end
+
   # Recompute status from dates (used by a daily refresh job).
   def refresh_status!(today = Date.current)
     return if cancelled?
