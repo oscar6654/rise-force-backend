@@ -1,7 +1,7 @@
 <% content_for :page_title, "Import logs" %>
 <% content_for :page_sub do %>Bulk uploads and vcsi_rise sync history<% end %>
 <% if can?(:sync, :sync) %>
-  <% content_for :page_actions do %>
+  <div class="mb-4 flex flex-wrap items-center gap-2">
     <% [["targets", "Sync targets"], ["sellout", "Sync sellout"], ["store_sellout", "Sync store sellout"], ["store_sku_sellout", "Sync distribution (SKU)"], ["store_targets", "Compute store targets"]].each do |kind, label| %>
       <%= button_to label, sync_path(kind), method: :post,
             class: "rounded-md border border-slate-300 bg-white text-slate-700 text-sm font-semibold px-3 py-2 hover:bg-slate-50" %>
@@ -16,7 +16,7 @@
             form: { data: { turbo_confirm: "#{warn}Generate this week's manager roundups? (uses API credits)" } },
             class: "rounded-md border border-[#1f4b99] bg-white text-[#1f4b99] text-sm font-semibold px-3 py-2 hover:bg-slate-50" %>
     <% end %>
-  <% end %>
+  </div>
 <% end %>
 
 <% if @has_active_jobs %>
