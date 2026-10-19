@@ -21,11 +21,15 @@ module Ai
         l.total_rows = sellers.size + managers.size
         l.save!
 
+        done = 0
         sellers.each do |seller|
           l.processed_rows += 1 if Ai::Briefs.seller_plan(seller).present?
         rescue StandardError => e
           l.error_count += 1
           l.rejected_records_data << { subject: "seller ##{seller.id} #{seller.name}", error: e.message }
+        ensure
+          done += 1
+          l.save! if (done % 5).zero? # live progress on the Import Logs page
         end
 
         managers.each do |manager|
@@ -33,6 +37,9 @@ module Ai
         rescue StandardError => e
           l.error_count += 1
           l.rejected_records_data << { subject: "manager ##{manager.id} #{manager.name}", error: e.message }
+        ensure
+          done += 1
+          l.save! if (done % 5).zero?
         end
 
         l.save!

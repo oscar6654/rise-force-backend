@@ -53,7 +53,11 @@ module Ai
         Rails.logger.warn("[Ai::Anthropic] HTTP #{res.code}: #{res.body.to_s[0, 300]}")
         return nil
       end
-      JSON.parse(res.body).dig("content", 0, "text")&.strip
+      # The response `content` is a list of blocks; on thinking-enabled models
+      # (Haiku 5.5 thinks by default) block 0 is a `thinking` block, so pick the
+      # first `text` block rather than assuming index 0.
+      json = JSON.parse(res.body)
+      Array(json["content"]).find { |b| b["type"] == "text" }&.dig("text")&.strip
     rescue StandardError => e
       Rails.logger.warn("[Ai::Anthropic] #{e.class}: #{e.message}")
       nil
