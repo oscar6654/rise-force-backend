@@ -20,13 +20,22 @@ class DashboardController < ApplicationController
                                         .sum(:amount)
     @last_sellout_sync = SelloutSnapshot.period_mtd.where(period_date: @month, seller_id: sellers.select(:id)).maximum(:synced_at)
 
+    # Presell PENDING = gross SFA orders (excl. cancelled) NET of confirmed vcsi
+    # sellout, per seller, floored at 0 — so it clears as sellout syncs instead
+    # of double-counting invoiced orders. (Same model as the app's "To invoice".)
+    gross_presell_by_seller = orders.where.not(status: :cancelled).where(ordered_at: @month..)
+                                    .group(:seller_id).sum(:total_amount)
+    confirmed_by_seller = SelloutSnapshot.period_mtd.where(period_date: @month, seller_id: sellers.select(:id))
+                                         .group(:seller_id).sum(:amount)
+    presell_pending_mtd = gross_presell_by_seller.sum { |sid, gross| [gross - [confirmed_by_seller[sid] || 0, 0].max, 0].max }
+
     @kpis = {
       registered_stores: stores.where(status: :active).count,
       invoiced_stores: stores.active_in_vcsi(@month).count, # actually buying (vcsi_rise truth)
       sellers: sellers.where(status: :active).count,
       productive_call_pct: completed_calls.positive? ? (productive_calls * 100 / completed_calls) : nil,
       orders_mtd: orders.where(ordered_at: @month..).count,
-      presell_mtd: orders.where(ordered_at: @month..).sum(:total_amount),
+      presell_mtd: presell_pending_mtd,
       actual_sellout_mtd: actual_sellout_mtd
     }
 
@@ -44,12 +53,11 @@ class DashboardController < ApplicationController
     targets = SellerTarget.for_month(@month).where(seller_id: sellers.select(:id)).index_by(&:seller_id)
     actuals = SelloutSnapshot.period_mtd.where(period_date: @month, seller_id: sellers.select(:id))
                              .group(:seller_id).sum(:amount)
-    presell = orders.where(ordered_at: @month..).group(:seller_id).sum(:total_amount)
-
     @attainment = sellers.includes(:branch).map do |s|
       target = targets[s.id]&.target_amount || 0
       actual = actuals[s.id] || 0
-      { seller: s, target: target, actual: actual, presell: presell[s.id] || 0,
+      pending = [(gross_presell_by_seller[s.id] || 0) - [actual, 0].max, 0].max # net of positive confirmed
+      { seller: s, target: target, actual: actual, presell: pending,
         pct: target.positive? ? (actual / target * 100).round : nil,
         last_sync: s.last_sync_at }
     end.sort_by { |r| -(r[:pct] || -1) }.first(12)

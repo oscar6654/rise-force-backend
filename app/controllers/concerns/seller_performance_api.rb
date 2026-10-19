@@ -36,17 +36,33 @@ module SellerPerformanceApi
   def seller_kpi(s, month)
     ids = s.login_group_ids
     confirmed = SelloutSnapshot.where(seller_id: ids, period_type: :mtd, period_date: month).sum(:amount)
-    presell = Order.where(seller_id: ids).where.not(status: :cancelled)
-                   .where(ordered_at: month.beginning_of_day..month.end_of_month.end_of_day).sum(:total_amount)
+    gross_presell = Order.where(seller_id: ids).where.not(status: :cancelled)
+                         .where(ordered_at: month.beginning_of_day..month.end_of_month.end_of_day).sum(:total_amount)
+    presell = [gross_presell - [confirmed, 0].max, 0].max # net of POSITIVE confirmed → clears as vcsi syncs
     target = SellerTarget.where(seller_id: ids, period_type: :mtd, period_date: month).sum(:target_amount).to_d
     blended = confirmed + presell
     {
-      seller_id: s.id, name: s.name, branch: s.branch&.name,
+      seller_id: s.id, name: s.name, branch: s.branch&.name, branch_id: s.branch_id, section: s.section,
       target_amount: target, confirmed_actual: confirmed, presell_pending: presell, blended_actual: blended,
       attainment_pct: (target.positive? ? (blended / target * 100).round : nil),
       pc_pct: s.route_productive_call_pct(month),
       active_stores: active_store_count(ids, month),
     }
+  end
+
+  # Combine a set of seller_kpi rows into one scoreboard (team/branch/section).
+  def team_totals(rows)
+    totals = {
+      sellers: rows.size,
+      target_amount: rows.sum { |r| r[:target_amount] },
+      confirmed_actual: rows.sum { |r| r[:confirmed_actual] },
+      presell_pending: rows.sum { |r| r[:presell_pending] },
+      active_stores: rows.sum { |r| r[:active_stores] },
+    }
+    blended = totals[:confirmed_actual] + totals[:presell_pending]
+    totals[:blended_actual] = blended
+    totals[:attainment_pct] = totals[:target_amount].to_d.positive? ? (blended / totals[:target_amount] * 100).round : nil
+    totals
   end
 
   def active_store_count(ids, month)
@@ -68,7 +84,7 @@ module SellerPerformanceApi
                      .group(:store_id).sum(:total_amount)
     Store.where(id: store_ids).includes(:branch).order(:name).map do |st|
       conf = confirmed[st.id] || 0.to_d
-      pre  = presell[st.id] || 0.to_d
+      pre  = [(presell[st.id] || 0.to_d) - [conf, 0].max, 0].max # net of positive confirmed
       tgt  = targets[st.id]&.target_amount
       { store_id: st.id, name: st.name, code: st.code, branch: st.branch&.name,
         target_amount: tgt, confirmed_actual: conf, presell_pending: pre, blended_actual: conf + pre,

@@ -41,30 +41,29 @@ RSpec.describe "vcsi_rise store sync + reconciling actual" do
     end
   end
 
-  describe "reconciling actual (presell -> invoiced truth)" do
-    it "to-invoice = SFA orders taken this month, independent of vcsi confirmed sellout" do
-      # SFA presell is its own pipeline; it reflects what the seller ordered and
-      # is NOT reconciled against vcsi confirmed (which is mostly non-SFA sellout).
+  describe "reconciling actual (presell nets against confirmed, clears as vcsi syncs)" do
+    it "to-invoice = SFA orders NET of confirmed sellout, so it clears as vcsi confirms" do
       create(:order, store: store, seller: seller, branch: branch,
                      ordered_at: 2.days.ago, total_amount: 25_000, status: :submitted)
-      expect(store.pending_presell(month)).to eq(25_000)
+      expect(store.pending_presell(month)).to eq(25_000) # nothing confirmed yet
 
-      # A sync brings vcsi confirmed sellout — to-invoice does NOT change (it isn't
-      # reconciled against confirmed; a sync never makes the order vanish).
+      # A sync brings vcsi confirmed sellout — to-invoice shrinks by the confirmed.
       stub_client(sellout: [{ "customer_id" => "CUST-1", "sellout" => "20000.0", "transactions" => 2 }])
       Vcsi::StoreSelloutSyncJob.perform_now
       expect(store.confirmed_actual(month)).to eq(20_000)
-      expect(store.pending_presell(month)).to eq(25_000) # unchanged by the sync
+      expect(store.pending_presell(month)).to eq(5_000)  # 25k ordered − 20k confirmed
+      expect(store.blended_actual(month)).to eq(25_000)  # max(confirmed, presell)
 
-      # A fresh order adds to it.
-      create(:order, store: store, seller: seller, branch: branch,
-                     ordered_at: 1.minute.from_now, total_amount: 15_000, status: :submitted)
-      expect(store.pending_presell(month)).to eq(40_000)
+      # Once confirmed catches up to / exceeds presell, to-invoice clears to 0.
+      stub_client(sellout: [{ "customer_id" => "CUST-1", "sellout" => "30000.0", "transactions" => 3 }])
+      Vcsi::StoreSelloutSyncJob.perform_now
+      expect(store.pending_presell(month)).to eq(0)
+      expect(store.blended_actual(month)).to eq(30_000)
     end
 
     it "is not inflated when vcsi confirmed sellout is NEGATIVE (net credit notes)" do
-      # The prod bug: a store whose net vcsi sellout is negative made the old
-      # `ordered - confirmed` formula blow up (30 - (-14000) = 14000+).
+      # Nets only POSITIVE confirmed, so a negative net can't blow it up
+      # (the old prod bug: 30 - (-14000) = 14000+).
       create(:order, store: store, seller: seller, branch: branch,
                      ordered_at: 1.day.ago, total_amount: 30, status: :submitted)
       stub_client(sellout: [{ "customer_id" => "CUST-1", "sellout" => "-14000.0", "transactions" => 1 }])

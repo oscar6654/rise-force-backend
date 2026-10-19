@@ -110,6 +110,22 @@ RSpec.describe "Manager app views", type: :request do
     expect(JSON.parse(response.body)["data"]["period"]).to eq("2026-07")
   end
 
+  it "slices the team into a branch/section segment" do
+    s1.update!(section: "North")
+    s2.update!(section: "South")
+    SellerTarget.create!(seller: s1, branch: branch, period_type: :mtd, period_date: month, target_amount: 100_000)
+    SelloutSnapshot.create!(seller: s1, branch: branch, period_type: :mtd, period_date: month, amount: 40_000)
+    token = login("MGR1", "9999")["access_token"]
+
+    get "/api/v1/manager/segment", params: { branch_id: branch.id, section: "North" },
+        headers: { "Authorization" => "Bearer #{token}" }
+    d = JSON.parse(response.body)["data"]
+    expect(d["title"]).to eq("#{branch.name} · North")
+    expect(d["sellers"].map { |r| r["name"] }).to contain_exactly("Seller One") # South excluded
+    expect(d["totals"]["confirmed_actual"].to_i).to eq(40_000)
+    expect(d["assortment"]).to be_an(Array)
+  end
+
   it "cannot see a seller outside the manager's team" do
     other = create(:seller, branch: branch)
     token = login("MGR1", "9999")["access_token"]

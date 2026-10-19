@@ -129,6 +129,7 @@ Rails.application.routes.draw do
 
       # Field-manager app views
       get "manager/team"          => "manager#team"
+      get "manager/segment"       => "manager#segment"
       get "manager/insights"      => "manager#insights"
       get "manager/sellers/:id"   => "manager#seller"
       get "manager/sellers/:id/insights" => "manager#seller_insights"

@@ -10,19 +10,24 @@ module Api
       # GET /api/v1/manager/team
       def team
         month = Date.current.beginning_of_month
-        sellers = current_manager.sellers.active.where(primary_seller_id: nil).includes(:branch).order(:name)
+        rows = segment_sellers.map { |s| seller_kpi(s, month) }
+        render json: { data: { manager: { name: current_manager.name }, period: month,
+                               totals: team_totals(rows), sellers: rows }, meta: meta }
+      end
+
+      # GET /api/v1/manager/segment?branch_id=&section=  → a BRANCH or SECTION slice
+      # of the team: combined KPI + pooled assortment + its sellers. Same shape the
+      # manager sees for a single seller, aggregated over the slice.
+      def segment
+        month = Date.current.beginning_of_month
+        sellers = segment_sellers
         rows = sellers.map { |s| seller_kpi(s, month) }
-        totals = {
-          sellers: rows.size,
-          target_amount: rows.sum { |r| r[:target_amount] },
-          confirmed_actual: rows.sum { |r| r[:confirmed_actual] },
-          presell_pending: rows.sum { |r| r[:presell_pending] },
-          active_stores: rows.sum { |r| r[:active_stores] },
-        }
-        blended = totals[:confirmed_actual] + totals[:presell_pending]
-        totals[:blended_actual] = blended
-        totals[:attainment_pct] = totals[:target_amount].to_d.positive? ? (blended / totals[:target_amount] * 100).round : nil
-        render json: { data: { manager: { name: current_manager.name }, period: month, totals: totals, sellers: rows }, meta: meta }
+        render json: { data: {
+          title: segment_title,
+          totals: team_totals(rows),
+          assortment: seller_assortment_by_type(sellers.flat_map(&:login_group_ids)),
+          sellers: rows,
+        }, meta: meta }
       end
 
       # GET /api/v1/manager/sellers/:id  → that seller's KPIs, per-assortment-type
@@ -58,10 +63,12 @@ module Api
         }, meta: meta }
       end
 
-      # GET /api/v1/manager/insights          → team-wide deep analytics (live)
+      # GET /api/v1/manager/insights[?branch_id=&section=] → deep analytics (live)
+      # for the whole team, or a branch/section slice of it.
       def insights
-        reps = team_rep_codes(current_manager.team_seller_ids)
-        render json: { data: cached_insights("team-#{current_manager.id}", reps: reps), meta: meta }
+        ids = segment_present? ? segment_group_ids : current_manager.team_seller_ids
+        key = "team-#{current_manager.id}#{segment_cache_suffix}"
+        render json: { data: cached_insights(key, reps: team_rep_codes(ids)), meta: meta }
       end
 
       # GET /api/v1/manager/sellers/:id/insights
@@ -85,7 +92,8 @@ module Api
       # Uses the display store scope (not team_store_ids) because a display-target
       # store need not be vcsi-linked.
       def display
-        render json: { data: { campaigns: display_campaigns_payload(display_team_store_ids.to_a) }, meta: meta }
+        ids = segment_present? ? display_store_ids_for(segment_group_ids) : display_team_store_ids.to_a
+        render json: { data: { campaigns: display_campaigns_payload(ids) }, meta: meta }
       end
 
       # GET /api/v1/manager/display/stores/:store_id → one store across all live
@@ -98,6 +106,34 @@ module Api
       end
 
       private
+
+      # The manager's sellers, optionally sliced to a branch and/or section.
+      # section="" (present but blank) means the "Unsectioned" group (section IS NULL).
+      def segment_sellers
+        scope = current_manager.sellers.active.where(primary_seller_id: nil).includes(:branch).order(:name)
+        scope = scope.where(branch_id: params[:branch_id]) if params[:branch_id].present?
+        scope = scope.where(section: params[:section].presence) if params.key?(:section)
+        scope
+      end
+
+      def segment_present?
+        params[:branch_id].present? || params.key?(:section)
+      end
+
+      def segment_group_ids
+        segment_sellers.flat_map(&:login_group_ids)
+      end
+
+      def segment_cache_suffix
+        "-b#{params[:branch_id]}-s#{params[:section]}" if segment_present?
+      end
+
+      def segment_title
+        parts = []
+        parts << (Branch.find_by(id: params[:branch_id])&.name) if params[:branch_id].present?
+        parts << (params[:section].presence || "Unsectioned") if params.key?(:section)
+        parts.compact.join(" · ").presence || "Team"
+      end
 
       def team_rep_codes(seller_ids)
         Seller.where(id: seller_ids).where.not(vcsi_sales_rep_ref: [nil, ""]).distinct.pluck(:vcsi_sales_rep_ref)

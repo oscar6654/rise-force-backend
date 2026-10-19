@@ -39,7 +39,8 @@ class SellerIntelligence
       t = targets[store.id]
       target = t&.target_amount.to_d
       basis = t&.basis_amount.to_d # trailing-3mo avg
-      actual = (confirmed[store.id] || 0).to_d + (presell[store.id] || 0).to_d
+      conf_amt = (confirmed[store.id] || 0).to_d
+      actual = conf_amt + [(presell[store.id] || 0).to_d - [conf_amt, 0].max, 0].max # presell net of positive confirmed
       reasons = []
       score = 0.0
       upside = 0.to_d

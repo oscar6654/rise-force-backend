@@ -59,15 +59,16 @@ class Store < ApplicationRecord
     SelloutSnapshot.store_mtd_actual_for(self, month: month)
   end
 
-  # "To invoice": the value of SFA presell orders taken this month, pending OSB
-  # invoicing. This is a DISTINCT pipeline from vcsi_rise confirmed sellout (which
-  # is mostly non-SFA DMS sales and can even go negative from credit notes), so it
-  # is NOT reconciled against confirmed — it simply reflects what the seller
-  # ordered. Excludes cancelled orders; resets each month.
+  # "To invoice": SFA presell this month that vcsi hasn't confirmed yet — gross
+  # presell NET of confirmed sellout, floored at 0, so it clears as vcsi syncs and
+  # blended_actual becomes max(confirmed, presell). Nets only POSITIVE confirmed:
+  # a NEGATIVE net (credit notes) must not inflate presell (30 - (-14000)!).
+  # Excludes cancelled.
   def pending_presell(month = Date.current.beginning_of_month)
-    orders.where.not(status: :cancelled)
-          .where(ordered_at: month.beginning_of_day..month.end_of_month.end_of_day)
-          .sum(:total_amount)
+    gross = orders.where.not(status: :cancelled)
+                  .where(ordered_at: month.beginning_of_day..month.end_of_month.end_of_day)
+                  .sum(:total_amount)
+    [gross - [confirmed_actual(month), 0].max, 0].max
   end
 
   # The reconciling actual shown against target: confirmed truth + fresh presell
