@@ -12,9 +12,12 @@ module Import
   #   buy_x_get_y:                     min_qty (pieces) + reward_qty [+ reward_barcode]
   #   combo_percent:                   items "barcode:minpc|barcode:minpc" + discount_rate
   #     (buy EACH listed item at its min pieces → discount_rate % off those items, ex-VAT)
+  #   multivariant_percent:            items "barcode:moqpc|barcode:moqpc|barcode:moqpc" + tiers "minSKUs:rate|..."
+  #     (mix & match: buy ANY N of the listed SKUs, each ≥ its MOQ pieces, → tier %;
+  #      e.g. tiers "2:0.08|3:0.12" = any 2 → 8%, all 3 → 12% off those items, ex-VAT)
   class PromosImporter < BaseImporter
     JOB_TYPE = :promo_import
-    MECHANICS = %w[tiered_discount buy_x_get_y free_goods bundle_price discount_percent discount_amount combo_percent].freeze
+    MECHANICS = %w[tiered_discount buy_x_get_y free_goods bundle_price discount_percent discount_amount combo_percent multivariant_percent].freeze
 
     private
 
@@ -49,6 +52,12 @@ module Import
         raise "combo_percent needs discount_rate (e.g. 0.10 for 10%)" if rate.blank?
 
         return { "rate" => rate.to_f }
+      end
+      if mechanic == "multivariant_percent"
+        tiers = Promo.parse_multivariant_tiers(row["tiers"])
+        raise "multivariant_percent needs tiers, e.g. \"2:0.08|3:0.12\" (minSKUs:rate)" if tiers.empty?
+
+        return { "tiers" => tiers }
       end
       return {} unless mechanic == "tiered_discount"
 
@@ -85,14 +94,15 @@ module Import
 
         promo.promo_lines.create!(role: :qualifying, it_barcode: barcode, product_id: first_pid.call(barcode),
                                   min_qty: row["min_qty"], fixed_price: row["fixed_price"])
-      when "combo_percent"
-        # Multiple qualifying items in ONE cell: "barcode:minpieces|barcode:minpieces".
+      when "combo_percent", "multivariant_percent"
+        # Participating SKUs in ONE cell: "barcode:minpieces|barcode:minpieces".
+        # (combo = each is required; multivariant = buy any N of them, tiered.)
         items = Promo.parse_combo_items(row["items"])
-        raise "combo_percent needs items, e.g. \"4987...:5|4988...:5|1234...:3\"" if items.empty?
+        raise "#{mechanic} needs items, e.g. \"4987...:2|4988...:2|1234...:2\"" if items.empty?
 
         items.each do |it|
-          raise "unknown combo item barcode '#{it['barcode']}'" unless Product.exists?(it_barcode: it["barcode"])
-          raise "combo item '#{it['barcode']}' needs a min-pieces > 0" unless it["min"].to_i.positive?
+          raise "unknown item barcode '#{it['barcode']}'" unless Product.exists?(it_barcode: it["barcode"])
+          raise "item '#{it['barcode']}' needs a min-pieces > 0" unless it["min"].to_i.positive?
 
           promo.promo_lines.create!(role: :qualifying, it_barcode: it["barcode"],
                                     product_id: first_pid.call(it["barcode"]), min_qty: it["min"])

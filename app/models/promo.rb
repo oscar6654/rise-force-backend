@@ -15,8 +15,31 @@ class Promo < ApplicationRecord
     # Combo: buy SPECIFIC items, EACH at its own minimum pieces (role:qualifying
     # promo_lines with min_qty) → X% off those items (ex-VAT). Rate in
     # config["rate"] (0.10 = 10%). All items must meet their min for it to apply.
-    combo_percent: 6
+    combo_percent: 6,
+    # Multivariant (mix & match): a set of participating SKUs each with its own
+    # per-item MOQ (min pieces). The % is TIERED by how many distinct participating
+    # SKUs reach their MOQ — e.g. "buy any 2 → 8%, all 3 → 12%". Tiers in
+    # config["tiers"] = [{min_skus:, rate:}]. Discount applies to the qualifying
+    # items that met their MOQ (ex-VAT).
+    multivariant_percent: 7
   }
+
+  # Sorted multivariant tiers [{min_skus, rate}] (ascending by min_skus).
+  def multivariant_tiers
+    Array(config&.dig("tiers")).map { |t| t.is_a?(Hash) ? t.transform_keys(&:to_s) : t }
+                               .sort_by { |t| t["min_skus"].to_i }
+  end
+
+  # Parse the compact multivariant syntax "minSKUs:rate|minSKUs:rate" into config
+  # tier hashes (rate 0.08 = 8%). e.g. "2:0.08|3:0.12" → any-2→8%, all-3→12%.
+  def self.parse_multivariant_tiers(str)
+    str.to_s.split(/[|;,]/).filter_map do |part|
+      n, rate = part.split(":").map { |s| s.to_s.strip }
+      next if n.blank? || rate.blank?
+
+      { "min_skus" => n.to_i, "rate" => rate.to_f }
+    end.select { |t| t["min_skus"].positive? }.sort_by { |t| t["min_skus"] }
+  end
 
   # X% rate for a combo_percent promo (0.10 = 10%).
   def combo_rate

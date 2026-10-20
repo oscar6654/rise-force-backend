@@ -60,6 +60,11 @@ class PromoEngine
         promo_total += d
         nudges.concat(n)
         record_saving(savings_by_promo, promo, d)
+      when 'multivariant_percent'
+        d, n = apply_multivariant(promo, by_product)
+        promo_total += d
+        nudges.concat(n)
+        record_saving(savings_by_promo, promo, d)
       end
     end
 
@@ -242,6 +247,44 @@ class PromoEngine
       (by_product[pid] || []).sum(&:line_total)
     end
     [(base * rate).round(2), []]
+  end
+
+  # Multivariant (mix & match): a set of participating SKUs each with its own
+  # per-item MOQ (pieces). The % tier is chosen by HOW MANY distinct participating
+  # SKUs reach their MOQ — e.g. any 2 → 8%, all 3 → 12%. The discount applies to
+  # the ex-VAT subtotal of the qualifying SKUs that met their MOQ. A near-miss
+  # (one more variant away from the next tier) becomes an upsell nudge.
+  def apply_multivariant(promo, by_product)
+    qualifying = promo.promo_lines.select(&:role_qualifying?)
+    tiers = promo.multivariant_tiers
+    return [0.to_d, []] if qualifying.empty? || tiers.empty?
+
+    met = []        # qualifying lines whose cart pieces reached their MOQ
+    started = false
+    qualifying.each do |q|
+      min = q.min_qty.to_i
+      have = line_product_ids(q).sum { |pid| pieces_of(by_product[pid], Product.find_by(id: pid)) }
+      started ||= have.positive?
+      met << q if min.positive? && have >= min
+    end
+    count = met.size
+
+    tier = tiers.reverse.find { |t| count >= t["min_skus"].to_i }
+    nxt  = tiers.find { |t| t["min_skus"].to_i > count }
+    nudges = if nxt && started
+      need = nxt["min_skus"].to_i - count
+      [{ promo_id: promo.id, promo: promo.name,
+         text: "Add #{need} more variant#{'s' if need > 1} (each ≥ MOQ) → #{(nxt['rate'].to_d * 100).to_i}% off the set" }]
+    else
+      []
+    end
+    return [0.to_d, nudges] unless tier
+
+    # X% off the ex-VAT total of the qualifying items that met their MOQ.
+    base = met.flat_map { |q| line_product_ids(q) }.uniq.sum do |pid|
+      (by_product[pid] || []).sum(&:line_total)
+    end
+    [(base * tier["rate"].to_d).round(2), nudges]
   end
 
   # Bundle price: buy min_qty PIECES of the qualifying SKU for a fixed price

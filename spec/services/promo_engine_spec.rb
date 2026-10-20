@@ -69,4 +69,50 @@ RSpec.describe PromoEngine do
       expect(eng.preview([{ product_id: product.id, quantity: 35, uom: "case" }])[:promo_savings].to_f).to eq(300.0) # ex-VAT ₱3125
     end
   end
+
+  describe "multivariant_percent (mix & match, tiered by distinct SKU)" do
+    let(:branch) { create(:branch) }
+    let(:store)  { create(:store, branch: branch) }
+    let(:p1) { create(:product, pcs_per_case: 12, case_cost: 100, item_cost: 10) }
+    let(:p2) { create(:product, pcs_per_case: 12, case_cost: 100, item_cost: 10) }
+    let(:p3) { create(:product, pcs_per_case: 12, case_cost: 100, item_cost: 10) }
+
+    # Buy any 2 of the 3 variants (each ≥ MOQ 12 pc = 1 case) → 8%; all 3 → 12%.
+    def mvp
+      promo = Promo.create!(code: "MVP", name: "Mix 2->8/3->12", mechanic_type: :multivariant_percent,
+                            status: :active, start_date: Date.current - 1, end_date: Date.current + 1,
+                            config: { "tiers" => [{ "min_skus" => 2, "rate" => 0.08 }, { "min_skus" => 3, "rate" => 0.12 }] })
+      [p1, p2, p3].each { |p| promo.promo_lines.create!(role: :qualifying, product: p, min_qty: 12) }
+      promo
+    end
+
+    it "takes the 'any 2' tier when 2 of 3 variants meet their MOQ" do
+      mvp
+      d = PromoEngine.new(store).preview([
+        { product_id: p1.id, quantity: 1, uom: "case" },
+        { product_id: p2.id, quantity: 1, uom: "case" },
+      ])[:promo_savings].to_f
+      expect(d).to eq(14.29) # 8% of 2 × (₱100 ex-VAT = ₱89.29)
+    end
+
+    it "takes the 'all 3' tier when every variant meets its MOQ" do
+      mvp
+      d = PromoEngine.new(store).preview([
+        { product_id: p1.id, quantity: 1, uom: "case" },
+        { product_id: p2.id, quantity: 1, uom: "case" },
+        { product_id: p3.id, quantity: 1, uom: "case" },
+      ])[:promo_savings].to_f
+      expect(d).to eq(32.14) # 12% of 3 × (₱100 ex-VAT)
+    end
+
+    it "does NOT apply (and nudges) when only one variant meets its MOQ" do
+      mvp
+      res = PromoEngine.new(store).preview([
+        { product_id: p1.id, quantity: 1, uom: "case" }, # 12 pc ≥ MOQ
+        { product_id: p2.id, quantity: 6, uom: "pc" },   # 6 pc < MOQ 12
+      ])
+      expect(res[:promo_savings].to_f).to eq(0.0)
+      expect(res[:nudges].first[:text]).to include("1 more variant").and include("8% off")
+    end
+  end
 end

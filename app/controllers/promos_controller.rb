@@ -62,6 +62,10 @@ class PromosController < ApplicationController
       # Field is a percent (10 = 10%); store as a rate (0.10). Combo items are
       # the qualifying promo_lines (each with its own Min qty, in pieces).
       promo.config = { "rate" => (params.dig(:promo, :config_rate).to_f / 100.0) }
+    when "multivariant_percent"
+      # Mix & match: tiers = "minSKUs:rate|..." (2:0.08 = any 2 variants → 8%).
+      # Participating SKUs are the qualifying promo_lines (each with its MOQ pieces).
+      promo.config = { "tiers" => Promo.parse_multivariant_tiers(params.dig(:promo, :config_mvtiers)) }
     end
   end
 

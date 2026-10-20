@@ -65,8 +65,10 @@ RSpec.describe "Promos console", type: :request do
 
     log = Import::PromosImporter.new(response.body, user: user, filename: "e.csv").call
     expect(log.error_count).to eq(0)
-    expect(Promo.count).to eq(10) # one example row per mechanic + a multi-channel spend + combo
-    expect(Promo.distinct.pluck(:mechanic_type)).to include("bundle_price", "free_goods", "discount_percent", "combo_percent")
+    expect(Promo.count).to eq(11) # one example row per mechanic + a multi-channel spend + combo + multivariant
+    expect(Promo.distinct.pluck(:mechanic_type)).to include("bundle_price", "free_goods", "discount_percent", "combo_percent", "multivariant_percent")
+    # the multivariant example parses its mix & match tiers (any 2 → 8%, all 3 → 12%)
+    expect(Promo.find_by(code: "MVP-2-3").multivariant_tiers).to eq([{ "min_skus" => 2, "rate" => 0.08 }, { "min_skus" => 3, "rate" => 0.12 }])
     # the multi-channel example (channel_code "AAA;BBB") becomes two eligibility rows
     expect(Promo.find_by(code: "HFSWS-SPEND").promo_eligibilities.map { |e| e.channel.code }).to contain_exactly("AAA", "BBB")
   end

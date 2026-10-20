@@ -98,9 +98,10 @@ class ImportsController < ApplicationController
   # One worked example of EVERY mechanic, each with a plain-English `notes`
   # column (the importer ignores unknown columns like `notes`).
   def promos_sample
-    bc = Product.where.not(it_barcode: [nil, ""]).order(:id).limit(2).pluck(:it_barcode)
+    bc = Product.where.not(it_barcode: [nil, ""]).order(:id).limit(3).pluck(:it_barcode)
     b1 = bc[0] || "4800016641"
     b2 = bc[1] || b1
+    b3 = bc[2] || b2
     chan_codes = Channel.order(:code).limit(2).pluck(:code)
     chan = chan_codes[0]
     multi_chan = chan_codes.join(";") # two channels in one cell = promo covers both
@@ -126,6 +127,10 @@ class ImportsController < ApplicationController
       { code: "COMBO-10", name: "Buy set get 10%", mechanic: "combo_percent", items: "#{b1}:24|#{b2}:12", discount_rate: "0.10",
         channel_code: chan, start_date: sd, end_date: ed, status: "active",
         notes: "Buy #{b1} >=24pc AND #{b2} >=12pc -> 10% off those items (ex-VAT). items = barcode:minpc|barcode:minpc, discount_rate = 0.10." },
+      { code: "MVP-2-3", name: "Mix any 2->8% / all 3->12%", mechanic: "multivariant_percent",
+        items: "#{b1}:2|#{b2}:2|#{b3}:2", tiers: "2:0.08|3:0.12",
+        channel_code: chan, start_date: sd, end_date: ed, status: "active",
+        notes: "Multivariant mix & match: buy ANY 2 of the listed SKUs (each >= its MOQ pieces) -> 8%; all 3 -> 12% off those items (ex-VAT). items = barcode:MOQpc|... , tiers = minSKUs:rate (2:0.08 = any 2 variants -> 8%). MOQ differs per brand (e.g. 2pc vs 6pc)." },
       { code: "SPEND-100-300", name: "Spend and save", mechanic: "tiered_discount", basis: "amount", tiers: "1200:100|3000:300",
         start_date: sd, end_date: ed, status: "active",
         notes: "PHP 100 off >= PHP 1200, PHP 300 off >= PHP 3000. Whole order (no it_barcode). tiers = min:amount." },
