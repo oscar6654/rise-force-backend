@@ -167,14 +167,14 @@ class ImportsController < ApplicationController
     chan = Channel.order(:code).first&.code || "SARI"
     seller = Seller.order(:seller_code).first&.seller_code || "SLR-001"
     headers = %w[store_code name owner_name address contact_number latitude longitude branch_code channel_code
-                 category discount seller_code route_code route_name vcsi_customer_ref segment chain sub_chain
+                 category status discount seller_code route_code route_name vcsi_customer_ref segment chain sub_chain
                  distribution_type tin visit_frequency week_pattern visit_day visit_sequence notes]
     rows = [
       { store_code: "ST-0001", name: "Aling Nena Store", owner_name: "Nena Cruz", address: "123 Rizal St, QC",
         contact_number: "09171234567", latitude: "14.6760", longitude: "121.0437", branch_code: branch, channel_code: chan,
-        category: "silver", discount: "2.5", seller_code: seller, route_code: "R-QC-01", route_name: "QC North", vcsi_customer_ref: "",
+        category: "silver", status: "active", discount: "2.5", seller_code: seller, route_code: "R-QC-01", route_name: "QC North", vcsi_customer_ref: "",
         visit_frequency: "f4", week_pattern: "every_week", visit_day: "mon", visit_sequence: "1",
-        notes: "Weekly (F4) every Monday, 1st stop. discount 2.5 = 2.5% exclusive discount (ex-VAT)." },
+        notes: "Weekly (F4) every Monday, 1st stop. discount 2.5 = 2.5% exclusive discount (ex-VAT). status active = shows in the app." },
       { store_code: "ST-0002", name: "7-Eleven Kamias", owner_name: "", address: "88 Kamias Rd, QC",
         contact_number: "", latitude: "14.6330", longitude: "121.0490", branch_code: branch, channel_code: chan,
         category: "gold", seller_code: seller, route_code: "R-QC-01", route_name: "QC North", vcsi_customer_ref: "",
@@ -182,9 +182,9 @@ class ImportsController < ApplicationController
         notes: "Fortnightly (F2) weeks 1 & 3, Wednesday, 2nd stop." },
       { store_code: "ST-0003", name: "Mercury Drug Cubao", owner_name: "", address: "Cubao, QC",
         contact_number: "", latitude: "14.6190", longitude: "121.0510", branch_code: branch, channel_code: chan,
-        category: "platinum", seller_code: seller, route_code: "R-QC-02", route_name: "QC South", vcsi_customer_ref: "",
+        category: "platinum", status: "inactive", seller_code: seller, route_code: "R-QC-02", route_name: "QC South", vcsi_customer_ref: "",
         visit_frequency: "f2", week_pattern: "weeks_2_4", visit_day: "fri", visit_sequence: "1",
-        notes: "F2 weeks 2 & 4, Friday. Different route (R-QC-02) = different beat/day." },
+        notes: "status inactive = HIDDEN from the seller app even though it still has a route (R-QC-02). Use active/inactive/closed. Blank keeps the current status." },
     ]
     CSV.generate do |csv|
       csv << headers

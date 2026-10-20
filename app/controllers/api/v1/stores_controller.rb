@@ -12,7 +12,7 @@ module Api
         q = params[:q].to_s.strip
         return render json: { data: [], meta: meta } if q.length < 2
 
-        stores = seller_stores.merge(Store.search(q)).order(:name).limit(20).to_a
+        stores = seller_stores.merge(Store.search(q)).visible_in_app.order(:name).limit(20).to_a
         ids = stores.map(&:id)
         today = Date.current
         ordered = Order.where(seller: current_seller, store_id: ids).where.not(status: :cancelled)

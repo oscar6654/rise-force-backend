@@ -37,6 +37,11 @@ class Store < ApplicationRecord
   def active_in_vcsi?(month = Date.current.beginning_of_month)
     SelloutSnapshot.store_mtd_actual_for(self, month: month).to_d.positive?
   end
+
+  # Stores the mobile app may show. An inactive/closed/rejected store stays in
+  # the master (and may still sit on a route) but disappears from the seller's
+  # app — route list, metrics, focus and search all filter through this.
+  scope :visible_in_app, -> { where.not(status: %i[inactive closed rejected]) }
   scope :search, ->(q) {
     return all if q.blank?
     where("name ILIKE :q OR store_code ILIKE :q OR owner_name ILIKE :q", q: "%#{sanitize_sql_like(q)}%")

@@ -28,13 +28,13 @@ module Api
         month = today.beginning_of_month
         seller = current_seller
         ids = current_group_ids # login group across branches
-        planned = Store.joins(:route).where(routes: { seller_id: ids }).select { |s| s.due_on?(today) }
+        planned = Store.joins(:route).where(routes: { seller_id: ids }).visible_in_app.select { |s| s.due_on?(today) }
         planned_ids = planned.map(&:id)
         visited = Visit.where(seller_id: ids, visit_date: today).distinct.count(:store_id)
         # Route completion counts only PLANNED stores visited (off-route
         # deviations don't inflate the day's goal).
         visited_planned = planned_ids.any? ? Visit.where(seller_id: ids, visit_date: today, store_id: planned_ids).distinct.count(:store_id) : 0
-        seller_store_ids = Store.joins(:route).where(routes: { seller_id: ids }).select(:id)
+        seller_store_ids = Store.joins(:route).where(routes: { seller_id: ids }).visible_in_app.select(:id)
         # Active stores (BLENDED): a store buying in vcsi_rise this month
         # (confirmed) OR with a presell order this month (to-invoice) — the same
         # confirmed+presell model as the sales number.
@@ -111,7 +111,7 @@ module Api
       def priorities
         today = Date.current
         due_ids = Store.joins(:route).where(routes: { seller_id: current_group_ids })
-                       .select { |s| s.due_on?(today) }.map(&:id)
+                       .visible_in_app.select { |s| s.due_on?(today) }.map(&:id)
         rows = SellerIntelligence.new(current_seller).priorities(store_ids: due_ids).map do |r|
           s = r[:store]
           {
@@ -221,7 +221,7 @@ module Api
         date = params[:date].present? ? Date.parse(params[:date]) : Date.current
         ids = current_group_ids # login group across branches
         stores = Store.joins(:route).where(routes: { seller_id: ids })
-                      .order(:visit_sequence)
+                      .visible_in_app.order(:visit_sequence)
         due = stores.select { |s| s.due_on?(date) }
         due_ids = due.map(&:id)
 

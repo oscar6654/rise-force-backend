@@ -71,4 +71,32 @@ it "requires a seller_code to create a brand-new route" do
   expect(log.rejected_records_data.first.to_json).to match(/seller_code/)
 end
 
+describe "status column" do
+  it "sets the store status from the sheet (case-insensitive)" do
+    run("store_code,name,branch_code,status\nSS1,Nena,HO,Inactive\n")
+    expect(Store.find_by(store_code: "SS1")).to be_inactive
+  end
+
+  it "defaults a new store to active and keeps it on a blank re-upload" do
+    run("store_code,name,branch_code\nSS2,Nena,HO\n")
+    expect(Store.find_by(store_code: "SS2")).to be_active
+    run("store_code,name,branch_code,status\nSS2,Nena,HO,inactive\n")  # deactivate
+    run("store_code,owner_name,branch_code\nSS2,N,HO\n")               # blank status cell
+    expect(Store.find_by(store_code: "SS2")).to be_inactive            # unchanged, not reset to active
+  end
+
+  it "rejects an unknown status value" do
+    log = run("store_code,name,branch_code,status\nSS3,Nena,HO,dormant\n")
+    expect(log.error_count).to eq(1)
+    expect(log.rejected_records_data.first.to_json).to match(/status/)
+  end
+
+  it "hides inactive/closed/rejected stores from the app via visible_in_app" do
+    %w[active inactive closed rejected provisional].each_with_index do |st, i|
+      create(:store, branch: branch, store_code: "V#{i}", status: st)
+    end
+    expect(Store.visible_in_app.pluck(:status)).to contain_exactly("active", "provisional")
+  end
+end
+
 end

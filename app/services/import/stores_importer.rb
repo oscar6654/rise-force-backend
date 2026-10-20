@@ -2,10 +2,14 @@ module Import
   # CSV headers (all optional except store_code; branch_code required for NEW
   # stores unless a default branch is supplied):
   #   store_code, name, owner_name, address, contact_number, latitude, longitude,
-  #   branch_code, channel_code, category, vcsi_customer_ref,
+  #   branch_code, channel_code, category, vcsi_customer_ref, status,
   #   segment, chain, sub_chain, distribution_type, tin,
   #   seller_code, route_code, route_name,
   #   visit_frequency, week_pattern, visit_day, visit_sequence
+  #
+  # STATUS: active | inactive | closed | provisional | rejected (blank = keep
+  # existing / default active for new). An inactive/closed/rejected store stays
+  # in the master but is hidden from the seller app even if it's still on a route.
   #
   # ROUTE PLAN: a store reaches a seller's call list via its ROUTE (route_code →
   # a Route owned by seller_code; created if missing). The visit block
@@ -55,6 +59,7 @@ module Import
       set(store, :visit_sequence, row["visit_sequence"])
 
       store.channel = Channel.find_by(code: row["channel_code"]) if row["channel_code"].present?
+      set_status(store, row["status"])
       assign_seller_and_route(store, row)
 
       apply_new_record_defaults(store) if store.new_record?
@@ -95,6 +100,17 @@ module Import
     # Same as #set but case-insensitive, for the lowercase enum columns.
     def set_enum(store, attr, value)
       store.public_send("#{attr}=", value.to_s.strip.downcase) if value.present?
+    end
+
+    # Store lifecycle status from the sheet (active/inactive/closed/…). Blank
+    # leaves it unchanged (merge semantics); an unknown value is a hard error so
+    # a typo doesn't silently leave a store active.
+    def set_status(store, value)
+      v = value.to_s.strip.downcase
+      return if v.blank?
+      raise "unknown status '#{value}' (use #{Store.statuses.keys.join('/')})" unless Store.statuses.key?(v)
+
+      store.status = v
     end
 
     # Exclusive per-customer discount, entered as a PERCENTAGE (2.5 = 2.5%),
