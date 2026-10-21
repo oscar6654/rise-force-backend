@@ -89,6 +89,8 @@ Rails.application.routes.draw do
   get  "imports/:kind/new"    => "imports#new",    as: :new_import
   get  "imports/:kind/sample" => "imports#sample", as: :sample_import
   post "imports/:kind"        => "imports#create", as: :imports
+  # Download the CURRENT master data as CSV (edit → re-upload).
+  get  "exports/:kind"        => "exports#show",   as: :export
 
   # Import / sync job history (Logs screen)
   resources :job_logs, only: [:index, :show] do

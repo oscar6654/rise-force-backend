@@ -1,6 +1,7 @@
 <% content_for :page_title, "Product tiers" %>
 <% content_for :page_sub do %>Managed tier list — each tier is a column in the pricing matrix<% end %>
 <% content_for :page_actions do %>
+  <% if can?(:product_tier, :view) %><%= link_to "⬇ Download CSV", export_path("product_tiers"), class: "rounded-md border border-slate-300 bg-white text-slate-700 text-sm font-semibold px-3 py-2 hover:bg-slate-50" %><% end %>
   <% if can?(:product_tier, :create) %>
     <%= link_to "New tier", new_product_tier_path, class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
   <% end %>

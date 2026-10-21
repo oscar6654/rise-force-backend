@@ -1,5 +1,6 @@
 <% content_for :page_title, "Store master" %>
 <% content_for :page_actions do %>
+  <% if can?(:store, :view) %><%= link_to "⬇ Download CSV", export_path("stores"), class: "rounded-md border border-slate-300 bg-white text-slate-700 text-sm font-semibold px-3 py-2 hover:bg-slate-50" %><% end %>
   <% if can?(:store, :create) %>
     <%= link_to "↑ Bulk upload", new_import_path("stores"), class: "rounded-md border border-slate-300 bg-white text-slate-700 text-sm font-semibold px-3 py-2 hover:bg-slate-50" %>
     <%= link_to "New store", new_store_path, class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>

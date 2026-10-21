@@ -1,6 +1,7 @@
 <% content_for :page_title, "Product categories" %>
 <% content_for :page_sub do %>Category master — used by products and searchable in the product picker<% end %>
 <% content_for :page_actions do %>
+  <% if can?(:product_category, :view) %><%= link_to "⬇ Download CSV", export_path("product_categories"), class: "rounded-md border border-slate-300 bg-white text-slate-700 text-sm font-semibold px-3 py-2 hover:bg-slate-50" %><% end %>
   <% if can?(:product_category, :create) %>
     <%= link_to "New category", new_product_category_path, class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
   <% end %>

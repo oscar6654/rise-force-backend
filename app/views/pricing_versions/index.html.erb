@@ -1,6 +1,7 @@
 <% content_for :page_title, "Pricing master" %>
 <% content_for :page_sub do %>Markup matrix: store category × product tier. Store price = base × (1 + markup)<% end %>
 <% content_for :page_actions do %>
+  <% if can?(:pricing, :view) %><%= link_to "⬇ Download CSV", export_path("pricing"), class: "rounded-md border border-slate-300 bg-white text-slate-700 text-sm font-semibold px-3 py-2 hover:bg-slate-50" %><% end %>
   <% if can?(:pricing, :create) %>
     <%= link_to "New version", new_pricing_version_path, class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
   <% end %>

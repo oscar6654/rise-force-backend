@@ -1,6 +1,7 @@
 <% content_for :page_title, "Assortments" %>
 <% content_for :page_sub do %>Must-stock lists per channel / store category — drive the app's gap detection<% end %>
 <% content_for :page_actions do %>
+  <% if can?(:assortment, :view) %><%= link_to "⬇ Download CSV", export_path("assortments"), class: "rounded-md border border-slate-300 bg-white text-slate-700 text-sm font-semibold px-3 py-2 hover:bg-slate-50" %><% end %>
   <% if can?(:assortment, :create) %>
     <%= link_to "New assortment", new_assortment_path, class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" %>
   <% end %>
