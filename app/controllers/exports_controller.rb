@@ -11,6 +11,7 @@ class ExportsController < ApplicationController
   KINDS = {
     "products"           => :product,
     "stores"             => :store,
+    "sellers"            => :seller,
     "product_channels"   => :product,
     "promos"             => :promo,
     "channels"           => :channel,
@@ -63,6 +64,22 @@ class ExportsController < ApplicationController
                 (d.positive? ? num(d * 100) : nil), s.seller&.seller_code, s.route&.code, s.route&.name,
                 s.vcsi_customer_ref, s.segment, s.chain, s.sub_chain, s.distribution_type, s.tin,
                 s.visit_frequency, s.week_pattern, s.visit_day, s.visit_sequence]
+      end
+    end
+  end
+
+  # Columns mirror SellersImporter so sellers round-trip. PINs are never exported
+  # (only the digests exist); a blank pin/diser_pin on re-import keeps the current one.
+  SELLER_COLS = %w[seller_code name branch_code status section vcsi_sales_rep_ref supervisor_name gsm_name
+                   om_name sales_target diser_code diser_name primary_seller_code manager_codes pin diser_pin].freeze
+
+  def export_sellers
+    csv_for(SELLER_COLS) do |csv|
+      Seller.includes(:branch, :primary_seller, :managers).find_each do |s|
+        csv << [s.seller_code, s.name, s.branch&.code, s.status, s.section, s.vcsi_sales_rep_ref,
+                s.supervisor_name, s.gsm_name, s.om_name, s.sales_target,
+                s.diser_code, s.diser_name, s.primary_seller&.seller_code,
+                s.managers.map(&:code).join(";").presence, nil, nil]
       end
     end
   end

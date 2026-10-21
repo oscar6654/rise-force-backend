@@ -10,9 +10,9 @@ module Import
       log = JobLog.find(log_id)
       data = log.source_file.download
       kwargs = { user: log.triggered_by, filename: log.filename, log: log }
-      # Stores need a default branch for NEW rows without a branch_code; derive
-      # it from the operator who uploaded (same as the inline path).
-      kwargs[:default_branch] = log.triggered_by&.branch || Branch.first if kind == "stores"
+      # Stores + sellers need a default branch for NEW rows without a branch_code;
+      # derive it from the operator who uploaded (same as the inline path).
+      kwargs[:default_branch] = log.triggered_by&.branch || Branch.first if %w[stores sellers].include?(kind)
       importer_class.constantize.new(data, **kwargs).call
     end
   end

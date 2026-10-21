@@ -3,9 +3,13 @@ class ImportsController < ApplicationController
   KINDS = {
     "products"         => [:product, "Import::ProductsImporter",        "/products"],
     "stores"           => [:store,   "Import::StoresImporter",          "/stores"],
+    "sellers"          => [:seller,  "Import::SellersImporter",         "/sellers"],
     "product_channels" => [:product, "Import::ProductChannelsImporter", "/product_channels"],
     "promos"           => [:promo,   "Import::PromosImporter",          "/promos"]
   }.freeze
+
+  # Importers that take a default branch for NEW rows lacking a branch_code.
+  DEFAULT_BRANCH_KINDS = %w[stores sellers].freeze
 
   before_action :set_kind
 
@@ -54,7 +58,7 @@ class ImportsController < ApplicationController
   # Small file: import in the request and report counts immediately.
   def run_inline_import(data, file)
     importer = @importer_class.constantize
-    log = if @kind == "stores"
+    log = if DEFAULT_BRANCH_KINDS.include?(@kind)
             importer.new(data, user: current_user, filename: file.original_filename,
                          default_branch: current_user.branch || Branch.first).call
           else
@@ -87,6 +91,7 @@ class ImportsController < ApplicationController
     when "product_channels" then product_channels_sample
     when "products"        then products_sample
     when "stores"          then stores_sample
+    when "sellers"         then sellers_sample
     else "\n"
     end
   end
@@ -94,6 +99,10 @@ class ImportsController < ApplicationController
   PROMO_HEADERS = %w[code name mechanic basis it_barcode tiers items min_qty reward_qty reward_barcode
                      discount_rate discount_amount fixed_price channel_code category branch_code
                      start_date end_date per_store_limit status notes].freeze
+
+  SELLER_HEADERS = %w[seller_code name branch_code status section vcsi_sales_rep_ref supervisor_name gsm_name
+                      om_name sales_target diser_code diser_name primary_seller_code manager_codes pin diser_pin
+                      notes].freeze
 
   # One worked example of EVERY mechanic, each with a plain-English `notes`
   # column (the importer ignores unknown columns like `notes`).
@@ -142,6 +151,27 @@ class ImportsController < ApplicationController
     CSV.generate do |csv|
       csv << PROMO_HEADERS
       rows.each { |r| csv << PROMO_HEADERS.map { |h| r[h.to_sym] } }
+    end
+  end
+
+  def sellers_sample
+    branch = Branch.order(:code).first&.code || "HQ"
+    mgr = Manager.order(:code).first&.code
+    rows = [
+      { seller_code: "SLR-001", name: "Juan Dela Cruz", branch_code: branch, status: "active", section: "KA",
+        vcsi_sales_rep_ref: "538614", supervisor_name: "Supervisor A", gsm_name: "GSM A", om_name: "OM A",
+        sales_target: "1500000", manager_codes: mgr,
+        notes: "vcsi_sales_rep_ref MUST match the rep code in vcsi_rise (drives sellout/targets/By-channel). status = active/suspended/inactive. manager_codes = ';'-separated." },
+      { seller_code: "SLR-001-B", name: "Juan Dela Cruz (Branch 2)", branch_code: branch, status: "active",
+        section: "HFS", vcsi_sales_rep_ref: "538615", sales_target: "0", primary_seller_code: "SLR-001",
+        notes: "A rep's SECOND code -> set primary_seller_code to the main code to merge them into one login group (put the primary row first)." },
+      { seller_code: "DSR-001", name: "Maria Santos", branch_code: branch, status: "active", section: "HFS",
+        diser_code: "DIS-001", diser_name: "Maria (Diser)",
+        notes: "diser_code sets the stock-check-only diser login (must differ from every seller_code). pin/diser_pin blank = keep the existing / shared PIN." },
+    ]
+    CSV.generate do |csv|
+      csv << SELLER_HEADERS
+      rows.each { |r| csv << SELLER_HEADERS.map { |h| r[h.to_sym] } }
     end
   end
 

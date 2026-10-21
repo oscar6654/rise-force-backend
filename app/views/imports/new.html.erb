@@ -25,6 +25,15 @@
       <li><code>category</code>: <code>platinum</code> / <code>gold</code> / <code>silver</code> / <code>bronze</code> (A/B/C/D — sets price list).</li>
       <li><code>discount</code>: the store's exclusive discount as a <strong>percentage</strong> — <code>2.5</code> = 2.5%. Applied <strong>ex-VAT</strong> at order time (catalog prices are VAT-inclusive). Blank/0 = none.</li>
     </ul>
+  <% elsif @kind == "sellers" %>
+    <p class="text-xs text-slate-500 mb-2">Keyed on <strong>seller_code</strong>: a new code creates a seller, an existing code updates it. Blank cells keep the current value. <code>branch_code</code> is required for new sellers.</p>
+    <ul class="text-xs text-slate-500 mb-4 space-y-0.5 list-disc pl-4">
+      <li><code>vcsi_sales_rep_ref</code>: the vcsi_rise <strong>sales_rep</strong> code — drives this seller's sellout, targets and the manager By-channel insight. Keep it accurate.</li>
+      <li><code>status</code>: <code>active</code> / <code>suspended</code> / <code>inactive</code> (blank keeps current; new = active).</li>
+      <li><code>primary_seller_code</code>: for a rep's <strong>second</strong> branch/code, point it at their main code to merge both into one login group (put the primary row first).</li>
+      <li><code>manager_codes</code>: the managers over this seller — <strong>semicolon-separated</strong> Manager codes (replaces the assignment).</li>
+      <li><code>diser_code</code>/<code>diser_name</code>: the stock-check-only diser login (must differ from every seller_code). <code>pin</code>/<code>diser_pin</code> blank = keep the existing PIN.</li>
+    </ul>
   <% elsif @kind == "product_channels" %>
     <p class="text-xs text-slate-500 mb-4"><strong>item_key</strong> must exist in the product master and <strong>channel_code</strong> in the channel master — rows referencing unknown keys are rejected. Each row adds a SKU to that channel's list (idempotent). Once a channel has a list, the app shows <em>only</em> those SKUs for stores on that channel; a channel with no list yet shows all SKUs. Set <code>available</code> to <code>false</code> to remove a SKU from a channel.</p>
   <% elsif @kind == "promos" %>

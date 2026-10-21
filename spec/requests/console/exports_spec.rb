@@ -17,7 +17,7 @@ RSpec.describe "Exports console", type: :request do
   end
 
   it "exports every master kind as CSV with a header row" do
-    %w[products stores product_channels promos channels product_categories
+    %w[products stores sellers product_channels promos channels product_categories
        product_tiers store_categories assortments pricing].each do |kind|
       expect(CSV.parse(csv_body(kind))).not_to be_empty, "#{kind} produced no CSV"
     end
