@@ -35,8 +35,13 @@ class OrderBatchesController < ApplicationController
   # Create the next batch for a (branch, seller).
   def build
     seller = Seller.find(params[:seller_id])
-    authorize_branch!(seller)
-    batch = OrderBatch.build_for(branch: seller.branch, seller: seller, user: current_user)
+    # Build for the branch the ORDERS are in (from the pending row), not the
+    # seller's master branch — for a login-group / OSB rep the two can differ
+    # (orders carry the store's branch), and build_for scopes by branch + seller,
+    # so using seller.branch would find nothing ("No unbatched orders").
+    branch = params[:branch_id].present? ? Branch.find(params[:branch_id]) : seller.branch
+    authorize_branch!(branch, column: :id)
+    batch = OrderBatch.build_for(branch: branch, seller: seller, user: current_user)
     if batch
       redirect_to order_batch_path(batch), notice: "Built #{batch.batch_number} — #{batch.order_count} orders. Ready to download."
     else

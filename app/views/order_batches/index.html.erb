@@ -16,7 +16,7 @@
           <td class="px-4 py-3 text-right font-mono text-sm"><%= number_with_precision(row.total, precision: 2) %></td>
           <td class="px-4 py-3 text-right">
             <% if can?(:order_batch, :download) %>
-              <%= button_to "Build next batch", build_order_batches_path(seller_id: row.seller_id), method: :post,
+              <%= button_to "Build next batch", build_order_batches_path(seller_id: row.seller_id, branch_id: row.branch_id), method: :post,
                     class: "rounded-md bg-[#1f4b99] text-white text-xs font-semibold px-3 py-1.5 hover:bg-[#17386f] cursor-pointer" %>
             <% end %>
           </td>
