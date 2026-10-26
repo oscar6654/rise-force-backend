@@ -46,6 +46,14 @@ module Api
                         status: :unprocessable_entity)
         end
 
+        # Mandatory delivery date for sellers whose section requires it — enforced
+        # server-side too so a stale app can't place an order without one.
+        if current_seller.delivery_date_required? && params[:delivery_date].blank?
+          return render(json: { error: { code: "delivery_date_required",
+                                          message: "A delivery date is required for your section." } },
+                        status: :unprocessable_entity)
+        end
+
         # Login group: attribute the order to the seller record that OWNS this
         # store (its branch / vcsi rep code), so OSB batches + confirmed sellout
         # line up — even though the login may be another group member.

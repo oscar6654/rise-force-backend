@@ -69,6 +69,9 @@ RSpec.configure do |config|
   # Devise/Warden login for console request specs (login_as).
   config.before(:suite) { Warden.test_mode! }
   config.after(:each) { Warden.test_reset! }
+  # SystemSetting keeps a class-level 5-min cache; a value set in one example
+  # (then rolled back) would otherwise linger and leak into the next. Reset it.
+  config.before(:each) { SystemSetting.send(:invalidate_cache) }
 
   # Filter lines from Rails gems in backtraces.
   config.filter_rails_from_backtrace!

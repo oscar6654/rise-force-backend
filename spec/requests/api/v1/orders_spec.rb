@@ -62,6 +62,27 @@ RSpec.describe "Api::V1::Orders", type: :request do
     expect(Order.find_by(client_uuid: "dd-1").delivery_date).to eq(Date.new(2026, 10, 25))
   end
 
+  it "rejects an order with no delivery_date when the seller's section requires one" do
+    seller.update!(section: "North")
+    SystemSetting.set("delivery_date_sections", "North")
+    post "/api/v1/orders", headers: auth_header, as: :json, params: {
+      client_uuid: "dd-req", store_id: store.id,
+      lines: [{ product_id: product.id, quantity: 1, uom: "case" }],
+    }
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.dig("error", "code")).to eq("delivery_date_required")
+    expect(Order.find_by(client_uuid: "dd-req")).to be_nil
+  end
+
+  it "persists remarks (stored as notes)" do
+    post "/api/v1/orders", headers: auth_header, as: :json, params: {
+      client_uuid: "rmk-1", store_id: store.id, notes: "Deliver AM only",
+      lines: [{ product_id: product.id, quantity: 1, uom: "case" }],
+    }
+    expect(response).to have_http_status(:created)
+    expect(Order.find_by(client_uuid: "rmk-1").notes).to eq("Deliver AM only")
+  end
+
   it "Seller#delivery_date_required? is gated by section + SystemSetting" do
     seller.update!(section: "North")
     expect(seller.delivery_date_required?).to be(false)        # setting blank

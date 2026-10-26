@@ -29,6 +29,24 @@ RSpec.describe "Order batches console", type: :request do
     expect(batch.seller).to eq(seller)
   end
 
+  it "includes delivery_date + remarks columns in the download CSV" do
+    branch = create(:branch)
+    seller = create(:seller, branch: branch)
+    store  = create(:store, branch: branch)
+    prod   = create(:product, it_barcode: "111", cs_barcode: "222")
+    order  = create(:order, seller: seller, store: store, branch: branch, status: :submitted,
+                    total_amount: 50, delivery_date: Date.new(2026, 10, 25), notes: "Deliver AM only")
+    order.order_lines.create!(product: prod, quantity: 2, uom: :case_uom, unit_price: 25, line_total: 50)
+    batch = OrderBatch.build_for(branch: branch, seller: seller, user: nil)
+
+    get download_order_batch_path(batch)
+    expect(response).to have_http_status(:ok)
+    rows = CSV.parse(response.body, headers: true)
+    expect(rows.headers).to include("delivery_date", "remarks")
+    expect(rows.first["remarks"]).to eq("Deliver AM only")
+    expect(rows.first["delivery_date"]).to eq("2026-10-25")
+  end
+
   it "still batches a same-branch order when branch_id is omitted" do
     branch = create(:branch)
     seller = create(:seller, branch: branch)
