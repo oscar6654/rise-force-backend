@@ -9,6 +9,10 @@ class Seller < ApplicationRecord
 
   belongs_to :branch
   belongs_to :user, optional: true
+  # The warehouse this seller's stock + orders are tied to. When both the seller
+  # and that warehouse are wms_enabled, the seller's orders flow through the WMS
+  # (pick/pack/dispatch) instead of the OSB batch download.
+  belongs_to :warehouse, optional: true
   # Field managers who oversee this seller (many-to-many; a seller may report to
   # both a supervisor and a branch manager).
   has_many :manager_sellers, dependent: :destroy
@@ -77,6 +81,13 @@ class Seller < ApplicationRecord
 
   def diser_login?
     diser_code.present?
+  end
+
+  # True when this seller's orders should flow through the WMS: the seller is
+  # flagged wms_enabled AND is tied to a warehouse that itself has WMS on.
+  # Otherwise orders go through OSB batch download as before.
+  def wms_order_routing?
+    wms_enabled? && warehouse&.wms_enabled?
   end
 
   scope :for_branches, ->(ids) { where(branch_id: ids) }

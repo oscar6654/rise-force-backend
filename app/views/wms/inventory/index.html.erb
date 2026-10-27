@@ -1,0 +1,74 @@
+<% content_for :page_title, "Inventory (lots)" %>
+<% content_for :page_actions do %>
+  <%= link_to "Upload CSV", new_import_path("inventory"), class: "rounded-md border border-slate-300 text-sm font-semibold px-3 py-2 hover:bg-slate-50" if can?(:inventory, :create) %>
+  <%= link_to "Download CSV", export_path("inventory", params.permit(:warehouse_id)), class: "rounded-md border border-slate-300 text-sm font-semibold px-3 py-2 hover:bg-slate-50" if can?(:inventory, :download) %>
+<% end %>
+
+<%# Inventory dashboard — reflects the selected warehouse (or all). %>
+<% tiles = [
+     ["On-hand (pcs)", number_with_delimiter(@stats[:on_hand]), "text-slate-900"],
+     ["Available",     number_with_delimiter(@stats[:available]), "text-emerald-700"],
+     ["Allocated",     number_with_delimiter(@stats[:allocated]), "text-slate-600"],
+     ["Locked",        number_with_delimiter(@stats[:locked]), "text-slate-600"],
+     ["SKUs",          number_with_delimiter(@stats[:skus]), "text-slate-900"],
+     ["Bins used",     number_with_delimiter(@stats[:locations]), "text-slate-900"],
+     ["Lots",          number_with_delimiter(@stats[:lots]), "text-slate-900"],
+     ["QA holds",      number_with_delimiter(@stats[:quarantine] + @stats[:damaged]), (@stats[:quarantine] + @stats[:damaged]).positive? ? "text-amber-700" : "text-slate-400"],
+   ] %>
+<div class="mb-2 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+  <% tiles.each do |label, value, color| %>
+    <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+      <div class="text-[10px] uppercase tracking-wide text-slate-400"><%= label %></div>
+      <div class="text-lg font-bold <%= color %>"><%= value %></div>
+    </div>
+  <% end %>
+</div>
+<%# Plain-language legend for the quantity columns — these confuse people. %>
+<details class="mb-3 text-xs text-slate-500">
+  <summary class="cursor-pointer select-none text-slate-600 font-medium">What do On-hand / Allocated / Locked / Available mean?</summary>
+  <ul class="mt-2 space-y-1 list-disc pl-5">
+    <li><strong>On-hand</strong> — pieces physically in the lot right now.</li>
+    <li><strong>Allocated</strong> — reserved for a planned pick job, not yet picked (still on the shelf).</li>
+    <li><strong>Locked</strong> — the picker has started picking these right now (released on a short/undo).</li>
+    <li><strong>Available</strong> — On-hand − Allocated − Locked = free to reserve for a new order. Only Available can be allocated.</li>
+    <li class="text-slate-400">On-hand only drops when stock physically leaves at pick-confirm — that's why reserved stock still counts as on-hand.</li>
+  </ul>
+</details>
+
+<form class="mb-3 flex flex-wrap gap-2" method="get">
+  <%= select_tag :warehouse_id, options_from_collection_for_select(@warehouses, :id, :whs_code, params[:warehouse_id]), include_blank: "All warehouses", class: "rounded-md border border-slate-300 px-3 py-2 text-sm", onchange: "this.form.submit()" %>
+  <%= text_field_tag :q, params[:q], placeholder: "Itemkey, barcode, description or location", class: "rounded-md border border-slate-300 px-3 py-2 text-sm w-72" %>
+  <%= submit_tag "Search", class: "rounded-md border border-slate-300 text-sm px-3 py-2 cursor-pointer" %>
+  <% if params[:q].present? %><%= link_to "Clear", url_for(controller: "wms/inventory", action: "index", warehouse_id: params[:warehouse_id]), class: "text-sm text-slate-500 underline self-center" %><% end %>
+</form>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <table class="w-full border-collapse min-w-[820px]">
+    <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+      <th class="px-3 py-2.5">WH</th><th class="px-3 py-2.5">Location</th><th class="px-3 py-2.5">Itemkey</th><th class="px-3 py-2.5">Barcode</th><th class="px-3 py-2.5">Description</th>
+      <th class="px-3 py-2.5">Lot</th><th class="px-3 py-2.5">Rcvd</th><th class="px-3 py-2.5 text-right">On hand</th>
+      <th class="px-3 py-2.5 text-right">Alloc</th><th class="px-3 py-2.5 text-right">Lock</th><th class="px-3 py-2.5 text-right">Avail</th><th class="px-3 py-2.5">Status</th><th></th>
+    </tr></thead>
+    <tbody>
+      <% @lots.each do |lot| %>
+        <tr class="border-b border-slate-100 hover:bg-slate-50">
+          <td class="px-3 py-2 text-xs text-slate-500"><%= lot.warehouse.whs_code %></td>
+          <td class="px-3 py-2 font-mono text-xs"><%= lot.storage_location&.loc_code || "—" %></td>
+          <td class="px-3 py-2 font-mono text-xs"><%= lot.product&.sku %></td>
+          <td class="px-3 py-2 font-mono text-xs text-slate-500"><%= lot.product&.it_barcode %></td>
+          <td class="px-3 py-2 text-sm"><%= lot.product&.description %></td>
+          <td class="px-3 py-2 text-xs text-slate-500"><%= lot.lot_code %></td>
+          <td class="px-3 py-2 text-xs text-slate-500"><%= lot.received_date %></td>
+          <td class="px-3 py-2 text-right text-sm"><%= lot.qty_on_hand.to_i %></td>
+          <td class="px-3 py-2 text-right text-xs text-slate-500"><%= lot.qty_allocated.to_i %></td>
+          <td class="px-3 py-2 text-right text-xs text-slate-500"><%= lot.qty_locked.to_i %></td>
+          <td class="px-3 py-2 text-right text-sm font-semibold"><%= lot.qty_available.to_i %></td>
+          <td class="px-3 py-2 text-xs"><%= lot.status %></td>
+          <td class="px-3 py-2 text-right"><% if can?(:storage_location, :update) %><%= link_to "Move", move_wms_inventory_path(lot), class: "text-sm font-semibold text-[#1f4b99] hover:underline" %><% end %></td>
+        </tr>
+      <% end %>
+      <% if @lots.empty? %><tr><td colspan="13" class="px-4 py-8 text-center text-sm text-slate-500">No stock on hand.</td></tr><% end %>
+    </tbody>
+  </table>
+</div>
+<div class="mt-3"><%= paginate @lots if respond_to?(:paginate) %></div>

@@ -34,7 +34,17 @@ RESOURCE_ACTIONS = {
   "incentive_scheme"   => %w[view create update],
   "stock_count"        => %w[view download],       # in-store shelf audits (field capture)
   "competitor_check"   => %w[view download],       # shelf price + competitor capture
-  "display_campaign"   => %w[view create destroy]  # display/visibility targets (xlsx) + evidence (csv)
+  "display_campaign"   => %w[view create destroy], # display/visibility targets (xlsx) + evidence (csv)
+  # WMS (Warehouse Management System)
+  "storage_location"   => %w[view create update download],
+  "inventory"          => %w[view create download], # create = seed/adjust on-hand via CSV upload
+  "receipt"            => %w[view create update],       # ASN / expected receipts
+  "fulfillment_order"  => %w[view create update],       # pick jobs / demand
+  "cycle_count"        => %w[view create update approve], # approve = reconcile (IRA)
+  "stock_movement"     => %w[view download],            # append-only ledger
+  "warehouse_staff"    => %w[view create update],
+  "wms_return"         => %w[view create update],       # returns & quality disposition
+  "replenishment"      => %w[view create update]        # break cases → pieces (piece-pick zone)
 }.freeze
 
 RESOURCE_ACTIONS.each do |resource, actions|
@@ -67,6 +77,7 @@ roles = {}
   "branch_manager"   => "Branch-scoped operations and approvals",
   "merchandiser"     => "Product, pricing, planogram and promo management",
   "osb_operator"     => "Backroom: order review and batch download",
+  "warehouse_admin"  => "Warehouse: locations, inventory, receiving, pick jobs, cycle counts, staff",
   "viewer"           => "Read-only access"
 }.each do |name, desc|
   roles[name] = Role.find_or_create_by!(name: name) { |r| r.description = desc }
@@ -90,6 +101,13 @@ grant(nm, "sync", "sync")
 grant(nm, "incentive_scheme", %w[create update])
 grant(nm, "display_campaign", %w[create destroy])
 %w[stock_count competitor_check visit].each { |r| grant(nm, r, "download") }
+# WMS: national manager can manage masters + reconcile counts + download.
+%w[storage_location receipt fulfillment_order warehouse_staff].each { |r| grant(nm, r, %w[create update]) }
+grant(nm, "cycle_count", %w[create update approve])
+grant(nm, "wms_return", %w[create update])
+grant(nm, "replenishment", %w[create update])
+%w[storage_location inventory stock_movement].each { |r| grant(nm, r, "download") }
+grant(nm, "inventory", "create") # upload / refresh on-hand
 
 # branch_manager (branch-scoped at the controller layer)
 bm = roles["branch_manager"]
@@ -122,6 +140,21 @@ osb = roles["osb_operator"]
 grant(osb, "dashboard", "view")
 grant(osb, "order", "view")
 grant(osb, "order_batch", %w[view download])
+
+# warehouse_admin — full WMS operations (console); sees dashboard + warehouse master.
+wa = roles["warehouse_admin"]
+grant(wa, "dashboard", "view")
+grant(wa, "warehouse", %w[view create update])
+grant(wa, "product", "view")
+grant(wa, "storage_location", %w[view create update download])
+grant(wa, "inventory", %w[view create download])
+grant(wa, "receipt", %w[view create update])
+grant(wa, "fulfillment_order", %w[view create update])
+grant(wa, "cycle_count", %w[view create update approve])
+grant(wa, "stock_movement", %w[view download])
+grant(wa, "warehouse_staff", %w[view create update])
+grant(wa, "wms_return", %w[view create update])
+grant(wa, "replenishment", %w[view create update])
 
 puts "Roles: #{Role.count}, RolePermissions: #{RolePermission.count}"
 

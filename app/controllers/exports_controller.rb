@@ -20,6 +20,10 @@ class ExportsController < ApplicationController
     "store_categories"   => :store_category,
     "assortments"        => :assortment,
     "pricing"            => :pricing,
+    "warehouses"         => :warehouse,
+    "storage_locations"  => :storage_location,
+    "inventory"          => :inventory,
+    "stock_movements"    => :stock_movement,
   }.freeze
 
   # GET /exports/:kind  → streams "<kind>_<date>.csv"
@@ -29,7 +33,18 @@ class ExportsController < ApplicationController
     raise ActionController::RoutingError, "Unknown export '#{kind}'" if resource.nil?
 
     authorize!(resource, :view)
-    send_data send("export_#{kind}"), filename: "#{kind}_#{Date.current.iso8601}.csv", type: "text/csv"
+    send_data send("export_#{kind}"), filename: export_filename(kind), type: "text/csv"
+  end
+
+  # Includes the warehouse code and/or the date window in the filename when the
+  # download is scoped, so per-warehouse / dated exports are distinguishable.
+  def export_filename(kind)
+    whs = Warehouse.where(id: params[:warehouse_id]).pick(:whs_code) if params[:warehouse_id].present?
+    from = params[:from].presence
+    to   = params[:to].presence
+    parts = [kind, whs]
+    parts << (from || to ? "#{from || 'start'}_to_#{to || 'now'}" : Date.current.iso8601)
+    "#{parts.compact.join('_')}.csv"
   end
 
   private
@@ -37,16 +52,18 @@ class ExportsController < ApplicationController
   # ---- heavy masters: columns mirror the importer so they round-trip ----------
 
   PRODUCT_COLS = %w[itemkey desc1 desc2 brand_code brand_name category_code category_name item_tier abc_class
-                    stock_uom purchase_uom selling_uom items_per_case it_barcode cs_barcode sw_barcode
-                    item_cost case_cost tax status].freeze
+                    stock_uom purchase_uom selling_uom items_per_case items_per_shrinkwrap shrinkwraps_per_case
+                    casesperpallet layersperpallet casestatfactor caseheight caseweight casevolume
+                    it_barcode cs_barcode sw_barcode item_cost case_cost tax status].freeze
 
   def export_products
     csv_for(PRODUCT_COLS) do |csv|
       Product.includes(:brand, :product_category, :product_tier).find_each do |p|
         csv << [p.sku, p.description, p.desc2, p.brand&.code, p.brand&.name,
                 p.product_category&.code, p.product_category&.name, p.product_tier&.code, p.abc_class,
-                p.stock_uom, p.purchase_uom, p.selling_uom, p.pcs_per_case, p.it_barcode, p.cs_barcode, p.sw_barcode,
-                p.item_cost, p.case_cost, p.tax_code, p.status]
+                p.stock_uom, p.purchase_uom, p.selling_uom, p.pcs_per_case, p.items_per_shrinkwrap, p.shrinkwraps_per_case,
+                p.casesperpallet, p.layersperpallet, p.casestatfactor, p.caseheight, p.caseweight, p.casevolume,
+                p.it_barcode, p.cs_barcode, p.sw_barcode, p.item_cost, p.case_cost, p.tax_code, p.status]
       end
     end
   end
@@ -71,15 +88,16 @@ class ExportsController < ApplicationController
   # Columns mirror SellersImporter so sellers round-trip. PINs are never exported
   # (only the digests exist); a blank pin/diser_pin on re-import keeps the current one.
   SELLER_COLS = %w[seller_code name branch_code status section vcsi_sales_rep_ref supervisor_name gsm_name
-                   om_name sales_target diser_code diser_name primary_seller_code manager_codes pin diser_pin].freeze
+                   om_name sales_target diser_code diser_name primary_seller_code manager_codes
+                   warehouse_code wms_enabled pin diser_pin].freeze
 
   def export_sellers
     csv_for(SELLER_COLS) do |csv|
-      Seller.includes(:branch, :primary_seller, :managers).find_each do |s|
+      Seller.includes(:branch, :primary_seller, :managers, :warehouse).find_each do |s|
         csv << [s.seller_code, s.name, s.branch&.code, s.status, s.section, s.vcsi_sales_rep_ref,
                 s.supervisor_name, s.gsm_name, s.om_name, s.sales_target,
                 s.diser_code, s.diser_name, s.primary_seller&.seller_code,
-                s.managers.map(&:code).join(";").presence, nil, nil]
+                s.managers.map(&:code).join(";").presence, s.warehouse&.whs_code, s.wms_enabled, nil, nil]
       end
     end
   end
@@ -151,6 +169,67 @@ class ExportsController < ApplicationController
         v = r.pricing_version
         csv << [v&.version_number, v&.name, v&.status, v&.effective_date,
                 r.store_category&.code, r.product_tier&.code, num(r.markup_rate.to_d * 100)]
+      end
+    end
+  end
+
+  # ---- WMS exports (round-trip with the WMS importers) ------------------------
+
+  def export_warehouses
+    csv_for(%w[whs_code wh_name branch_code address status wms_enabled allocation_strategy]) do |csv|
+      Warehouse.includes(:branch).order(:whs_code).each do |w|
+        csv << [w.whs_code, w.wh_name, w.branch&.code, w.address, w.status, w.wms_enabled, w.allocation_strategy]
+      end
+    end
+  end
+
+  STORAGE_LOCATION_COLS = %w[warehouse_code loc_code name zone aisle bay level loc_type pickable
+                             allow_mixed_lots slot_capacity pick_sequence allowed_abc_classes
+                             allowed_brand_codes status].freeze
+
+  def export_storage_locations
+    brand_codes = Brand.pluck(:id, :code).to_h
+    csv_for(STORAGE_LOCATION_COLS) do |csv|
+      StorageLocation.includes(:warehouse).order(:warehouse_id, :pick_sequence, :loc_code).find_each do |l|
+        csv << [l.warehouse.whs_code, l.loc_code, l.name, l.zone, l.aisle, l.bay, l.level, l.loc_type,
+                l.pickable, l.allow_mixed_lots, l.slot_capacity, l.pick_sequence,
+                Array(l.allowed_abc_classes).join(";"),
+                Array(l.allowed_brand_ids).filter_map { |id| brand_codes[id] }.join(";"), l.status]
+      end
+    end
+  end
+
+  def export_inventory
+    cols = %w[warehouse_code loc_code itemkey it_barcode lot_code received_date expiry_date
+              qty_on_hand qty_allocated qty_locked qty_available status]
+    scope = InventoryLot.includes(:warehouse, :storage_location, :product)
+    scope = scope.where(warehouse_id: params[:warehouse_id]) if params[:warehouse_id].present?
+    csv_for(cols) do |csv|
+      scope.find_each do |lot|
+        csv << [lot.warehouse.whs_code, lot.storage_location&.loc_code, lot.product&.sku, lot.product&.it_barcode,
+                lot.lot_code, lot.received_date, lot.expiry_date, lot.qty_on_hand, lot.qty_allocated,
+                lot.qty_locked, lot.qty_available, lot.status]
+      end
+    end
+  end
+
+  # Audit trail: every counter change, who did it (warehouse staff on the floor,
+  # or the console user for office actions like adjust/reconcile), and the lot /
+  # order / receipt it touched. Honours the same filters as the ledger view
+  # (warehouse, type, staff, from/to date window) so a date-scoped download
+  # matches what is on screen. find_each batches by id — ascending id is
+  # chronological for an append-only ledger, so the CSV reads oldest → newest.
+  def export_stock_movements
+    cols = %w[occurred_at warehouse_code movement_type field quantity itemkey lot_code loc_code to_loc_code
+              fulfillment_ref receipt_ref reason staff_code user_email]
+    csv_for(cols) do |csv|
+      StockMovement.filtered(params)
+                   .includes(:warehouse, :product, :inventory_lot, :storage_location, :to_storage_location,
+                             :fulfillment_order, :receipt, :warehouse_staff, :user).find_each do |m|
+        csv << [m.occurred_at&.iso8601, m.warehouse.whs_code, m.movement_type, m.field, m.quantity,
+                m.product&.sku, m.inventory_lot&.lot_code, m.storage_location&.loc_code,
+                m.to_storage_location&.loc_code, m.fulfillment_order&.reference_no, m.receipt&.po_ref,
+                m.reason, m.warehouse_staff&.staff_code, m.user&.email]
       end
     end
   end

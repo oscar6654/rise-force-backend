@@ -23,6 +23,13 @@ module Api
           return render json: { data: tokens.merge(role: "manager", manager: manager_json(m)), meta: meta }
         end
 
+        if (ws = WarehouseStaff.active.find_by("lower(staff_code) = ?", code.downcase)) && valid_staff_pin?(ws, pin)
+          tokens = issue_staff_tokens(ws, **device_params)
+          # A picker just came online → sweep up any jobs queued while nobody was present.
+          ::Wms::AssignUnassignedJob.perform_later(ws.warehouse_id) if ws.has_role?("pick")
+          return render json: { data: tokens.merge(role: "staff", roles: ws.roles, staff: staff_json(ws)), meta: meta }
+        end
+
         render_unauthorized
       end
 
@@ -36,6 +43,9 @@ module Api
           if device.role == "manager" && device.manager_id
             issue_manager_tokens(Manager.find(device.manager_id), device_id: device.device_id,
                                  platform: device.platform, app_version: device.app_version)
+          elsif device.role == "staff" && device.warehouse_staff_id
+            issue_staff_tokens(WarehouseStaff.find(device.warehouse_staff_id), device_id: device.device_id,
+                               platform: device.platform, app_version: device.app_version)
           else
             issue_tokens(device.seller, role: device.role, device_id: device.device_id,
                          platform: device.platform, app_version: device.app_version)
@@ -86,6 +96,36 @@ module Api
         return manager.authenticate_pin(pin.to_s).present? if manager.pin_set?
 
         pin.to_s == SystemSetting.get("mobile_shared_pin", "1234").to_s
+      end
+
+      def valid_staff_pin?(staff, pin)
+        return staff.authenticate_pin(pin.to_s).present? if staff.pin_set?
+
+        pin.to_s == SystemSetting.get("mobile_shared_pin", "1234").to_s
+      end
+
+      def issue_staff_tokens(staff, device_id:, platform: nil, app_version: nil)
+        jti = SecureRandom.uuid
+        raw_refresh = SecureRandom.hex(32)
+        DeviceToken.create!(
+          warehouse_staff_id: staff.id, role: "staff", device_id: device_id, jti: jti,
+          refresh_token_digest: DeviceToken.digest(raw_refresh),
+          refresh_expires_at: REFRESH_TTL.from_now,
+          platform: platform, app_version: app_version, last_used_at: Time.current
+        )
+        staff.update_column(:last_used_at, Time.current)
+        {
+          access_token: JsonWebToken.encode({ warehouse_staff_id: staff.id, jti: jti, role: "staff", roles: staff.roles }),
+          refresh_token: raw_refresh,
+          expires_in: JsonWebToken::ACCESS_TTL.to_i
+        }
+      end
+
+      def staff_json(staff)
+        { id: staff.id, code: staff.staff_code, name: staff.name, role: "staff", roles: staff.roles,
+          warehouse_id: staff.warehouse_id, require_scan: staff.require_scan,
+          allocation_strategy: staff.warehouse&.allocation_strategy,
+          brand_ids: staff.brand_ids, zones: staff.zones }
       end
 
       def issue_manager_tokens(manager, device_id:, platform: nil, app_version: nil)

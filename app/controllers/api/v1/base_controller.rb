@@ -9,7 +9,7 @@ module Api
       rescue_from ActiveRecord::RecordInvalid, with: :unprocessable
       rescue_from ActionController::ParameterMissing, with: :bad_request
 
-      attr_reader :current_seller, :current_manager, :current_role
+      attr_reader :current_seller, :current_manager, :current_warehouse_staff, :current_role
 
       private
 
@@ -24,12 +24,20 @@ module Api
         @current_device = device
         @current_seller = device.seller
         @current_manager = device.manager_id ? Manager.find_by(id: device.manager_id) : nil
+        @current_warehouse_staff = device.warehouse_staff_id ? WarehouseStaff.find_by(id: device.warehouse_staff_id) : nil
         @current_role = device.role.presence || "seller"
         device.update_column(:last_used_at, Time.current)
       end
 
       def require_manager!
         render_unauthorized unless current_role == "manager" && current_manager
+      end
+
+      # Gate a WMS endpoint on the logged-in warehouse staff holding a given role.
+      def require_staff_role!(role)
+        unless current_role == "staff" && current_warehouse_staff&.has_role?(role.to_s)
+          render_unauthorized
+        end
       end
 
       # Every seller_id this login represents (login group: 1 login → 2-3 seller

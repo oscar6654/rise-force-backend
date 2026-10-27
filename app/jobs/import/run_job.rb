@@ -6,13 +6,17 @@ module Import
   class RunJob < ApplicationJob
     queue_as :default
 
-    def perform(log_id, importer_class, kind)
+    def perform(log_id, importer_class, kind, mode = nil)
       log = JobLog.find(log_id)
       data = log.source_file.download
       kwargs = { user: log.triggered_by, filename: log.filename, log: log }
       # Stores + sellers need a default branch for NEW rows without a branch_code;
       # derive it from the operator who uploaded (same as the inline path).
-      kwargs[:default_branch] = log.triggered_by&.branch || Branch.first if %w[stores sellers].include?(kind)
+      if %w[stores sellers].include?(kind)
+        kwargs[:default_branch] = log.triggered_by&.branch || Branch.first
+      else
+        kwargs[:mode] = mode
+      end
       importer_class.constantize.new(data, **kwargs).call
     end
   end

@@ -19,6 +19,16 @@ class OrderBatch < ApplicationRecord
       candidates = Order.where(branch: branch, seller: seller, status: :submitted, order_batch_id: nil)
                         .lock("FOR UPDATE SKIP LOCKED")
                         .to_a
+      # WMS-routed sellers: an order is batchable (for invoicing) only once ALL of
+      # its fulfillment orders are DISPATCHED (a split job has several) — picking-
+      # first, so the batch carries what actually shipped. Non-WMS sellers batch
+      # immediately, exactly as before.
+      if seller&.wms_order_routing?
+        ids = candidates.map(&:id)
+        undispatched = FulfillmentOrder.where(order_id: ids).where.not(status: %i[dispatched cancelled]).pluck(:order_id).to_set
+        with_fo      = FulfillmentOrder.where(order_id: ids).pluck(:order_id).to_set
+        candidates.select! { |o| with_fo.include?(o.id) && !undispatched.include?(o.id) }
+      end
       return nil if candidates.empty?
 
       seq = (where(branch: branch, seller: seller).maximum(:sequence) || 0) + 1

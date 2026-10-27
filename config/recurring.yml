@@ -51,6 +51,13 @@ production:
     queue: default
     schedule: "20 6,12,18 * * *" # 06:20, 12:20, 18:20 daily
 
+  # WMS: open random/scheduled cycle counts (IRA), weighted by ABC. Count volume
+  # per run is the SystemSetting `wms_cycle_count_per_run` (default 5).
+  wms_cycle_count_scheduler:
+    class: Wms::CycleCountSchedulerJob
+    queue: default
+    schedule: "0 5 * * *" # 05:00 daily
+
   # Derive store targets from vcsi_rise history (trailing avg + growth). Daily
   # so a newly-linked store gets a target the next morning without waiting for
   # month rollover; the trailing window itself only changes month to month.

@@ -1,0 +1,22 @@
+<% content_for :page_title, "Cycle count ##{@count.id}" %>
+<div class="rounded-xl border border-slate-200 bg-white p-6 max-w-xl">
+  <dl class="grid grid-cols-2 gap-y-2 text-sm">
+    <dt class="text-slate-500">Warehouse</dt><dd><%= @count.warehouse.whs_code %></dd>
+    <dt class="text-slate-500">Location</dt><dd class="font-mono"><%= @count.storage_location.loc_code %></dd>
+    <dt class="text-slate-500">Trigger</dt><dd><%= @count.trigger.titleize %></dd>
+    <dt class="text-slate-500">Status</dt><dd><%= @count.status.titleize %></dd>
+    <dt class="text-slate-500">System qty</dt><dd><%= @count.system_qty&.to_i %></dd>
+    <dt class="text-slate-500">Counted qty</dt><dd><%= @count.counted_qty&.to_i || "—" %></dd>
+    <dt class="text-slate-500">Variance</dt><dd class="<%= @count.variance && !@count.variance.zero? ? 'text-red-600 font-semibold' : '' %>"><%= @count.variance&.to_i || "—" %></dd>
+    <% if @count.reason.present? %><dt class="text-slate-500">Reason</dt><dd><%= @count.reason %></dd><% end %>
+  </dl>
+  <div class="mt-5 flex gap-2">
+    <% if @count.counted? && can?(:cycle_count, :approve) %>
+      <%= button_to "Reconcile (adjust stock)", reconcile_wms_cycle_count_path(@count), class: "rounded-md bg-emerald-600 text-white text-sm font-semibold px-4 py-2 hover:bg-emerald-700" %>
+    <% end %>
+    <% if !@count.reconciled? && !@count.cancelled? && can?(:cycle_count, :update) %>
+      <%= button_to "Cancel", cancel_wms_cycle_count_path(@count), class: "rounded-md border border-slate-300 text-sm font-semibold px-4 py-2 hover:bg-slate-50" %>
+    <% end %>
+  </div>
+</div>
+<div class="mt-4"><%= link_to "← Back", wms_cycle_counts_path, class: "text-sm text-[#1f4b99] hover:underline" %></div>

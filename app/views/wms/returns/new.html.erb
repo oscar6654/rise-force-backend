@@ -1,0 +1,37 @@
+<% content_for :page_title, "Record a return" %>
+<div class="rounded-xl border border-slate-200 bg-white p-6 max-w-xl">
+  <%= form_with url: wms_returns_path, method: :post, local: true do |f| %>
+    <div class="grid grid-cols-1 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Warehouse</label>
+        <%= select_tag :warehouse_id, options_from_collection_for_select(@warehouses, :id, :whs_code), include_blank: "—", class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Product</label>
+        <%= select_tag :product_id, options_from_collection_for_select(Product.order(:sku).limit(1000), :id, ->(p) { "#{p.sku} · #{p.description}" }), include_blank: "—", class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm", data: { controller: "tom-select" } %>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Qty (pieces)</label>
+          <%= number_field_tag :qty, nil, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Disposition</label>
+          <%= select_tag :disposition, options_for_select([["Return to saleable", "saleable"], ["Damaged (write-off)", "damaged"], ["Quarantine (QA hold)", "quarantine"]]), class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Destination location</label>
+        <%= select_tag :location_id, options_from_collection_for_select(StorageLocation.includes(:warehouse).order(:warehouse_id, :loc_code), :id, ->(l) { "#{l.warehouse.whs_code} · #{l.loc_code} (#{l.loc_type})" }), include_blank: "—", class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm", data: { controller: "tom-select" } %>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Reason (optional)</label>
+        <%= text_field_tag :reason, nil, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+      </div>
+    </div>
+    <div class="mt-5">
+      <%= submit_tag "Record return", class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-4 py-2 hover:bg-[#17386f] cursor-pointer" %>
+      <%= link_to "Cancel", wms_returns_path, class: "text-sm text-slate-500 hover:underline px-2" %>
+    </div>
+  <% end %>
+</div>

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_19_150001) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_27_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -112,6 +112,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_150001) do
   create_table "brands", force: :cascade do |t|
     t.string "code", null: false
     t.datetime "created_at", null: false
+    t.boolean "high_value", default: false, null: false
     t.string "name", null: false
     t.integer "sort_order", default: 0, null: false
     t.integer "status", default: 0, null: false
@@ -145,6 +146,31 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_150001) do
     t.index ["visit_id"], name: "index_competitor_price_checks_on_visit_id"
   end
 
+  create_table "cycle_counts", force: :cascade do |t|
+    t.datetime "counted_at"
+    t.bigint "counted_by_id"
+    t.decimal "counted_qty", precision: 14, scale: 2
+    t.datetime "created_at", null: false
+    t.bigint "inventory_lot_id"
+    t.bigint "product_id"
+    t.string "reason"
+    t.datetime "reconciled_at"
+    t.bigint "reconciled_by_id"
+    t.integer "status", default: 0, null: false
+    t.bigint "storage_location_id", null: false
+    t.decimal "system_qty", precision: 14, scale: 2
+    t.integer "trigger", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.decimal "variance", precision: 14, scale: 2
+    t.bigint "warehouse_id", null: false
+    t.index ["inventory_lot_id"], name: "index_cycle_counts_on_inventory_lot_id"
+    t.index ["product_id"], name: "index_cycle_counts_on_product_id"
+    t.index ["storage_location_id", "status"], name: "index_cycle_counts_on_storage_location_id_and_status"
+    t.index ["storage_location_id"], name: "index_cycle_counts_on_storage_location_id"
+    t.index ["warehouse_id", "status"], name: "index_cycle_counts_on_warehouse_id_and_status"
+    t.index ["warehouse_id"], name: "index_cycle_counts_on_warehouse_id"
+  end
+
   create_table "device_tokens", force: :cascade do |t|
     t.string "app_version"
     t.datetime "created_at", null: false
@@ -159,10 +185,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_150001) do
     t.string "role", default: "seller", null: false
     t.bigint "seller_id"
     t.datetime "updated_at", null: false
+    t.bigint "warehouse_staff_id"
     t.index ["jti"], name: "index_device_tokens_on_jti", unique: true
     t.index ["manager_id"], name: "index_device_tokens_on_manager_id"
     t.index ["seller_id", "device_id"], name: "index_device_tokens_on_seller_id_and_device_id"
     t.index ["seller_id"], name: "index_device_tokens_on_seller_id"
+    t.index ["warehouse_staff_id"], name: "index_device_tokens_on_warehouse_staff_id"
   end
 
   create_table "display_campaigns", force: :cascade do |t|
@@ -211,6 +239,51 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_150001) do
     t.index ["store_id"], name: "index_display_targets_on_store_id"
   end
 
+  create_table "fulfillment_lines", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "fulfillment_order_id", null: false
+    t.integer "pack", default: 0, null: false
+    t.bigint "product_id", null: false
+    t.decimal "qty_allocated", precision: 14, scale: 2, default: "0.0", null: false
+    t.decimal "qty_checked", precision: 14, scale: 2, default: "0.0", null: false
+    t.decimal "qty_demanded", precision: 14, scale: 2, default: "0.0", null: false
+    t.decimal "qty_picked", precision: 14, scale: 2, default: "0.0", null: false
+    t.integer "status", default: 0, null: false
+    t.integer "uom", default: 1, null: false
+    t.datetime "updated_at", null: false
+    t.index ["fulfillment_order_id"], name: "index_fulfillment_lines_on_fulfillment_order_id"
+    t.index ["product_id"], name: "index_fulfillment_lines_on_product_id"
+  end
+
+  create_table "fulfillment_orders", force: :cascade do |t|
+    t.datetime "allocated_at"
+    t.bigint "assigned_to_id"
+    t.datetime "checked_at"
+    t.bigint "checked_by_id"
+    t.datetime "created_at", null: false
+    t.date "delivery_date"
+    t.date "demand_date"
+    t.datetime "dispatched_at"
+    t.string "import_batch_uuid"
+    t.bigint "order_id"
+    t.bigint "parent_fulfillment_order_id"
+    t.datetime "picked_at"
+    t.string "reference_no", null: false
+    t.text "remarks"
+    t.integer "source", default: 0, null: false
+    t.integer "status", default: 0, null: false
+    t.bigint "store_id"
+    t.datetime "updated_at", null: false
+    t.bigint "warehouse_id", null: false
+    t.index ["assigned_to_id"], name: "index_fulfillment_orders_on_assigned_to_id"
+    t.index ["order_id"], name: "index_fulfillment_orders_on_order_id"
+    t.index ["parent_fulfillment_order_id"], name: "index_fulfillment_orders_on_parent_fulfillment_order_id"
+    t.index ["store_id"], name: "index_fulfillment_orders_on_store_id"
+    t.index ["warehouse_id", "reference_no"], name: "index_fulfillment_orders_on_warehouse_id_and_reference_no", unique: true
+    t.index ["warehouse_id", "status"], name: "index_fulfillment_orders_on_warehouse_id_and_status"
+    t.index ["warehouse_id"], name: "index_fulfillment_orders_on_warehouse_id"
+  end
+
   create_table "incentive_schemes", force: :cascade do |t|
     t.bigint "branch_id"
     t.jsonb "config", default: {}, null: false
@@ -222,6 +295,28 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_150001) do
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
     t.index ["branch_id"], name: "index_incentive_schemes_on_branch_id"
+  end
+
+  create_table "inventory_lots", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.date "expiry_date"
+    t.integer "lock_version", default: 0, null: false
+    t.string "lot_code"
+    t.bigint "product_id", null: false
+    t.decimal "qty_allocated", precision: 14, scale: 2, default: "0.0", null: false
+    t.decimal "qty_locked", precision: 14, scale: 2, default: "0.0", null: false
+    t.decimal "qty_on_hand", precision: 14, scale: 2, default: "0.0", null: false
+    t.date "received_date", null: false
+    t.integer "status", default: 0, null: false
+    t.bigint "storage_location_id"
+    t.datetime "updated_at", null: false
+    t.bigint "warehouse_id", null: false
+    t.index ["product_id"], name: "index_inventory_lots_on_product_id"
+    t.index ["storage_location_id"], name: "index_inventory_lots_on_storage_location_id"
+    t.index ["warehouse_id", "product_id", "received_date"], name: "index_inventory_lots_fifo_active", where: "(status = 1)"
+    t.index ["warehouse_id", "product_id", "storage_location_id", "lot_code", "received_date"], name: "index_inventory_lots_identity", unique: true
+    t.index ["warehouse_id"], name: "index_inventory_lots_on_warehouse_id"
+    t.check_constraint "qty_allocated >= 0::numeric AND qty_locked >= 0::numeric AND qty_on_hand >= (qty_allocated + qty_locked)", name: "inventory_lots_counters_nonneg"
   end
 
   create_table "job_logs", force: :cascade do |t|
@@ -303,6 +398,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_150001) do
     t.bigint "product_id", null: false
     t.bigint "promo_id"
     t.decimal "quantity", precision: 12, scale: 2, default: "0.0", null: false
+    t.decimal "shipped_qty", precision: 14, scale: 2
     t.decimal "unit_price", precision: 12, scale: 2, default: "0.0", null: false
     t.integer "uom", default: 0, null: false
     t.datetime "updated_at", null: false
@@ -351,6 +447,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_150001) do
     t.string "resource", null: false
     t.datetime "updated_at", null: false
     t.index ["resource", "action"], name: "index_permissions_on_resource_and_action", unique: true
+  end
+
+  create_table "pick_allocations", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "fulfillment_line_id", null: false
+    t.bigint "fulfillment_order_id", null: false
+    t.bigint "inventory_lot_id"
+    t.integer "pack", default: 0, null: false
+    t.integer "pick_sequence", default: 0, null: false
+    t.bigint "product_id", null: false
+    t.decimal "qty_allocated", precision: 14, scale: 2, default: "0.0", null: false
+    t.decimal "qty_picked", precision: 14, scale: 2, default: "0.0", null: false
+    t.integer "status", default: 0, null: false
+    t.bigint "storage_location_id"
+    t.datetime "updated_at", null: false
+    t.index ["fulfillment_line_id"], name: "index_pick_allocations_on_fulfillment_line_id"
+    t.index ["fulfillment_order_id"], name: "index_pick_allocations_on_fulfillment_order_id"
+    t.index ["inventory_lot_id"], name: "index_pick_allocations_on_inventory_lot_id"
+    t.index ["product_id"], name: "index_pick_allocations_on_product_id"
+    t.index ["storage_location_id"], name: "index_pick_allocations_on_storage_location_id"
   end
 
   create_table "planograms", force: :cascade do |t|
@@ -520,6 +636,55 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_150001) do
     t.index ["status", "start_date", "end_date"], name: "index_promos_on_status_and_start_date_and_end_date"
   end
 
+  create_table "receipt_lines", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.decimal "expected_qty", precision: 14, scale: 2, default: "0.0", null: false
+    t.string "it_barcode"
+    t.bigint "product_id"
+    t.bigint "receipt_id", null: false
+    t.decimal "received_qty", precision: 14, scale: 2, default: "0.0", null: false
+    t.integer "status", default: 0, null: false
+    t.integer "uom", default: 1, null: false
+    t.datetime "updated_at", null: false
+    t.index ["product_id"], name: "index_receipt_lines_on_product_id"
+    t.index ["receipt_id"], name: "index_receipt_lines_on_receipt_id"
+  end
+
+  create_table "receipts", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "import_batch_uuid"
+    t.text "notes"
+    t.string "po_ref", null: false
+    t.integer "source", default: 0, null: false
+    t.integer "status", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.bigint "warehouse_id", null: false
+    t.index ["warehouse_id", "po_ref"], name: "index_receipts_on_warehouse_id_and_po_ref", unique: true
+    t.index ["warehouse_id"], name: "index_receipts_on_warehouse_id"
+  end
+
+  create_table "replenishment_tasks", force: :cascade do |t|
+    t.bigint "assigned_to_id"
+    t.datetime "created_at", null: false
+    t.datetime "done_at"
+    t.bigint "fulfillment_order_id"
+    t.string "notes"
+    t.bigint "piece_location_id"
+    t.decimal "pieces", precision: 14, scale: 2, default: "0.0", null: false
+    t.bigint "product_id", null: false
+    t.integer "qty_cases", default: 0, null: false
+    t.integer "status", default: 0, null: false
+    t.integer "trigger", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.bigint "warehouse_id", null: false
+    t.index ["assigned_to_id"], name: "index_replenishment_tasks_on_assigned_to_id"
+    t.index ["fulfillment_order_id"], name: "index_replenishment_tasks_on_fulfillment_order_id"
+    t.index ["piece_location_id"], name: "index_replenishment_tasks_on_piece_location_id"
+    t.index ["product_id"], name: "index_replenishment_tasks_on_product_id"
+    t.index ["warehouse_id", "status"], name: "index_replenishment_tasks_on_warehouse_id_and_status"
+    t.index ["warehouse_id"], name: "index_replenishment_tasks_on_warehouse_id"
+  end
+
   create_table "role_permissions", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.bigint "permission_id", null: false
@@ -604,6 +769,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_150001) do
     t.bigint "user_id"
     t.datetime "vcsi_pulled_at"
     t.string "vcsi_sales_rep_ref"
+    t.bigint "warehouse_id"
+    t.boolean "wms_enabled", default: false, null: false
     t.index ["branch_id", "status"], name: "index_sellers_on_branch_id_and_status"
     t.index ["branch_id"], name: "index_sellers_on_branch_id"
     t.index ["diser_code"], name: "index_sellers_on_diser_code", unique: true, where: "(diser_code IS NOT NULL)"
@@ -612,6 +779,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_150001) do
     t.index ["seller_code"], name: "index_sellers_on_seller_code", unique: true
     t.index ["user_id"], name: "index_sellers_on_user_id"
     t.index ["vcsi_sales_rep_ref"], name: "index_sellers_on_vcsi_sales_rep_ref"
+    t.index ["warehouse_id"], name: "index_sellers_on_warehouse_id"
   end
 
   create_table "sellout_snapshots", force: :cascade do |t|
@@ -668,6 +836,40 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_150001) do
     t.index ["visit_id"], name: "index_stock_counts_on_visit_id"
   end
 
+  create_table "stock_movements", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "cycle_count_id"
+    t.integer "field", default: 0, null: false
+    t.bigint "fulfillment_order_id"
+    t.bigint "inventory_lot_id"
+    t.jsonb "metadata", default: {}, null: false
+    t.integer "movement_type", null: false
+    t.datetime "occurred_at", null: false
+    t.bigint "pick_allocation_id"
+    t.bigint "product_id"
+    t.decimal "quantity", precision: 14, scale: 2, default: "0.0", null: false
+    t.string "reason"
+    t.bigint "receipt_id"
+    t.bigint "storage_location_id"
+    t.bigint "to_storage_location_id"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.bigint "warehouse_id", null: false
+    t.bigint "warehouse_staff_id"
+    t.index ["cycle_count_id"], name: "index_stock_movements_on_cycle_count_id"
+    t.index ["fulfillment_order_id"], name: "index_stock_movements_on_fulfillment_order_id"
+    t.index ["inventory_lot_id"], name: "index_stock_movements_on_inventory_lot_id"
+    t.index ["occurred_at"], name: "index_stock_movements_on_occurred_at"
+    t.index ["pick_allocation_id"], name: "index_stock_movements_on_pick_allocation_id"
+    t.index ["product_id"], name: "index_stock_movements_on_product_id"
+    t.index ["receipt_id"], name: "index_stock_movements_on_receipt_id"
+    t.index ["storage_location_id"], name: "index_stock_movements_on_storage_location_id"
+    t.index ["to_storage_location_id"], name: "index_stock_movements_on_to_storage_location_id"
+    t.index ["warehouse_id", "occurred_at"], name: "index_stock_movements_on_warehouse_id_and_occurred_at"
+    t.index ["warehouse_id"], name: "index_stock_movements_on_warehouse_id"
+    t.index ["warehouse_staff_id"], name: "index_stock_movements_on_warehouse_staff_id"
+  end
+
   create_table "stock_snapshots", force: :cascade do |t|
     t.date "as_of_date", null: false
     t.datetime "created_at", null: false
@@ -680,6 +882,34 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_150001) do
     t.index ["product_id"], name: "index_stock_snapshots_on_product_id"
     t.index ["store_id", "product_id", "as_of_date"], name: "idx_on_store_id_product_id_as_of_date_6194f60507", unique: true
     t.index ["store_id"], name: "index_stock_snapshots_on_store_id"
+  end
+
+  create_table "storage_locations", force: :cascade do |t|
+    t.string "aisle"
+    t.boolean "allow_mixed_lots", default: false, null: false
+    t.string "allowed_abc_classes", default: [], array: true
+    t.bigint "allowed_brand_ids", default: [], array: true
+    t.string "bay"
+    t.datetime "created_at", null: false
+    t.datetime "last_counted_at"
+    t.string "level"
+    t.string "loc_code", null: false
+    t.integer "loc_type", default: 0, null: false
+    t.string "name"
+    t.boolean "needs_cycle_count", default: false, null: false
+    t.integer "pick_sequence", default: 0, null: false
+    t.boolean "pickable", default: true, null: false
+    t.integer "slot_capacity", default: 1, null: false
+    t.integer "status", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.bigint "warehouse_id", null: false
+    t.string "zone"
+    t.index ["allowed_abc_classes"], name: "index_storage_locations_on_allowed_abc_classes", using: :gin
+    t.index ["allowed_brand_ids"], name: "index_storage_locations_on_allowed_brand_ids", using: :gin
+    t.index ["warehouse_id", "loc_code"], name: "index_storage_locations_on_warehouse_id_and_loc_code", unique: true
+    t.index ["warehouse_id", "pickable", "status"], name: "idx_on_warehouse_id_pickable_status_5699ff5292"
+    t.index ["warehouse_id", "zone"], name: "index_storage_locations_on_warehouse_id_and_zone"
+    t.index ["warehouse_id"], name: "index_storage_locations_on_warehouse_id"
   end
 
   create_table "store_categories", force: :cascade do |t|
@@ -888,16 +1118,71 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_150001) do
     t.index ["store_id"], name: "index_visits_on_store_id"
   end
 
+  create_table "warehouse_staffs", force: :cascade do |t|
+    t.bigint "brand_ids", default: [], array: true
+    t.datetime "created_at", null: false
+    t.datetime "last_used_at"
+    t.string "name", null: false
+    t.string "pin_digest"
+    t.boolean "require_scan", default: false, null: false
+    t.string "roles", default: [], array: true
+    t.bigint "seller_id"
+    t.string "staff_code", null: false
+    t.integer "status", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.bigint "warehouse_id", null: false
+    t.string "zones", default: [], array: true
+    t.index ["brand_ids"], name: "index_warehouse_staffs_on_brand_ids", using: :gin
+    t.index ["roles"], name: "index_warehouse_staffs_on_roles", using: :gin
+    t.index ["seller_id"], name: "index_warehouse_staffs_on_seller_id"
+    t.index ["staff_code"], name: "index_warehouse_staffs_on_staff_code", unique: true
+    t.index ["warehouse_id"], name: "index_warehouse_staffs_on_warehouse_id"
+  end
+
   create_table "warehouses", force: :cascade do |t|
     t.string "address"
+    t.integer "allocation_strategy", default: 0, null: false
     t.bigint "branch_id"
     t.datetime "created_at", null: false
+    t.string "piece_pick_zone"
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
     t.string "wh_name", null: false
     t.string "whs_code", null: false
+    t.boolean "wms_enabled", default: false, null: false
     t.index ["branch_id"], name: "index_warehouses_on_branch_id"
     t.index ["whs_code"], name: "index_warehouses_on_whs_code", unique: true
+  end
+
+  create_table "wms_return_lines", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "disposition"
+    t.string "it_barcode"
+    t.bigint "product_id"
+    t.decimal "qty", precision: 14, scale: 2, default: "0.0", null: false
+    t.string "reason"
+    t.integer "status", default: 0, null: false
+    t.bigint "storage_location_id"
+    t.integer "uom", default: 1, null: false
+    t.datetime "updated_at", null: false
+    t.bigint "wms_return_id", null: false
+    t.index ["product_id"], name: "index_wms_return_lines_on_product_id"
+    t.index ["storage_location_id"], name: "index_wms_return_lines_on_storage_location_id"
+    t.index ["wms_return_id"], name: "index_wms_return_lines_on_wms_return_id"
+  end
+
+  create_table "wms_returns", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "notes"
+    t.string "ref", null: false
+    t.integer "source", default: 0, null: false
+    t.integer "status", default: 0, null: false
+    t.bigint "store_id"
+    t.datetime "updated_at", null: false
+    t.bigint "warehouse_id", null: false
+    t.index ["store_id"], name: "index_wms_returns_on_store_id"
+    t.index ["warehouse_id", "ref"], name: "index_wms_returns_on_warehouse_id_and_ref", unique: true
+    t.index ["warehouse_id"], name: "index_wms_returns_on_warehouse_id"
   end
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
@@ -910,13 +1195,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_150001) do
   add_foreign_key "assortments", "store_categories", column: "store_category_ref_id"
   add_foreign_key "competitor_price_checks", "products"
   add_foreign_key "competitor_price_checks", "visits"
+  add_foreign_key "cycle_counts", "inventory_lots"
+  add_foreign_key "cycle_counts", "products"
+  add_foreign_key "cycle_counts", "storage_locations"
+  add_foreign_key "cycle_counts", "warehouses"
   add_foreign_key "device_tokens", "sellers"
   add_foreign_key "display_campaigns", "users", column: "created_by_id"
   add_foreign_key "display_evidences", "display_campaigns"
   add_foreign_key "display_evidences", "stores"
   add_foreign_key "display_targets", "display_campaigns"
   add_foreign_key "display_targets", "stores"
+  add_foreign_key "fulfillment_lines", "fulfillment_orders"
+  add_foreign_key "fulfillment_lines", "products"
+  add_foreign_key "fulfillment_orders", "orders"
+  add_foreign_key "fulfillment_orders", "stores"
+  add_foreign_key "fulfillment_orders", "warehouses"
   add_foreign_key "incentive_schemes", "branches"
+  add_foreign_key "inventory_lots", "products"
+  add_foreign_key "inventory_lots", "storage_locations"
+  add_foreign_key "inventory_lots", "warehouses"
   add_foreign_key "job_logs", "users", column: "triggered_by_id"
   add_foreign_key "manager_sellers", "managers"
   add_foreign_key "manager_sellers", "sellers"
@@ -935,6 +1232,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_150001) do
   add_foreign_key "orders", "sellers"
   add_foreign_key "orders", "stores"
   add_foreign_key "orders", "visits"
+  add_foreign_key "pick_allocations", "fulfillment_lines"
+  add_foreign_key "pick_allocations", "fulfillment_orders"
+  add_foreign_key "pick_allocations", "inventory_lots"
+  add_foreign_key "pick_allocations", "products"
+  add_foreign_key "pick_allocations", "storage_locations"
   add_foreign_key "planograms", "channels"
   add_foreign_key "planograms", "users", column: "uploaded_by_id"
   add_foreign_key "pricing_rules", "pricing_versions"
@@ -953,6 +1255,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_150001) do
   add_foreign_key "promo_lines", "products"
   add_foreign_key "promo_lines", "promos"
   add_foreign_key "promos", "users", column: "created_by_id"
+  add_foreign_key "receipt_lines", "products"
+  add_foreign_key "receipt_lines", "receipts"
+  add_foreign_key "receipts", "warehouses"
+  add_foreign_key "replenishment_tasks", "fulfillment_orders"
+  add_foreign_key "replenishment_tasks", "products"
+  add_foreign_key "replenishment_tasks", "storage_locations", column: "piece_location_id"
+  add_foreign_key "replenishment_tasks", "warehouse_staffs", column: "assigned_to_id"
+  add_foreign_key "replenishment_tasks", "warehouses"
   add_foreign_key "role_permissions", "permissions"
   add_foreign_key "role_permissions", "roles"
   add_foreign_key "routes", "branches"
@@ -963,6 +1273,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_150001) do
   add_foreign_key "sellers", "branches"
   add_foreign_key "sellers", "sellers", column: "primary_seller_id"
   add_foreign_key "sellers", "users"
+  add_foreign_key "sellers", "warehouses"
   add_foreign_key "sellout_snapshots", "branches"
   add_foreign_key "sellout_snapshots", "products"
   add_foreign_key "sellout_snapshots", "sellers"
@@ -971,8 +1282,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_150001) do
   add_foreign_key "sku_sellout_snapshots", "sellers"
   add_foreign_key "stock_counts", "products"
   add_foreign_key "stock_counts", "visits"
+  add_foreign_key "stock_movements", "cycle_counts"
+  add_foreign_key "stock_movements", "fulfillment_orders"
+  add_foreign_key "stock_movements", "inventory_lots"
+  add_foreign_key "stock_movements", "pick_allocations"
+  add_foreign_key "stock_movements", "products"
+  add_foreign_key "stock_movements", "receipts"
+  add_foreign_key "stock_movements", "storage_locations"
+  add_foreign_key "stock_movements", "warehouses"
   add_foreign_key "stock_snapshots", "products"
   add_foreign_key "stock_snapshots", "stores"
+  add_foreign_key "storage_locations", "warehouses"
   add_foreign_key "store_registrations", "branches"
   add_foreign_key "store_registrations", "channels"
   add_foreign_key "store_registrations", "sellers"
@@ -996,5 +1316,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_150001) do
   add_foreign_key "visits", "routes"
   add_foreign_key "visits", "sellers"
   add_foreign_key "visits", "stores"
+  add_foreign_key "warehouse_staffs", "sellers"
+  add_foreign_key "warehouse_staffs", "warehouses"
   add_foreign_key "warehouses", "branches"
+  add_foreign_key "wms_return_lines", "products"
+  add_foreign_key "wms_return_lines", "storage_locations"
+  add_foreign_key "wms_return_lines", "wms_returns"
+  add_foreign_key "wms_returns", "stores"
+  add_foreign_key "wms_returns", "warehouses"
 end

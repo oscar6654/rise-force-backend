@@ -25,6 +25,11 @@
       <% if @pending.to_a.empty? %><tr><td colspan="4" class="px-4 py-6 text-center text-sm text-slate-500">No unbatched orders.</td></tr><% end %>
     </tbody>
   </table>
+  <% if @wms_held_count.to_i > 0 %>
+    <div class="px-4 py-2.5 border-t border-slate-200 bg-amber-50 text-xs text-amber-800">
+      <%= @wms_held_count %> order<%= 's' unless @wms_held_count == 1 %> <%= @wms_held_count == 1 ? 'is' : 'are' %> being handled in the <strong>WMS</strong> (picking/packing) and <%= @wms_held_count == 1 ? "isn't" : "aren't" %> shown here. They become batchable once dispatched, and carry the shipped quantities.
+    </div>
+  <% end %>
 </div>
 
 <div class="rounded-xl border border-slate-200 bg-white overflow-hidden">

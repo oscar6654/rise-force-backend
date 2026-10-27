@@ -1,0 +1,31 @@
+<% content_for :page_title, "WMS staff" %>
+<% content_for :page_actions do %>
+  <%= link_to "New staff", new_wms_staff_path, class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" if can?(:warehouse_staff, :create) %>
+<% end %>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <table class="w-full border-collapse min-w-[640px]">
+    <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+      <th class="px-4 py-2.5">Warehouse</th><th class="px-4 py-2.5">Code</th><th class="px-4 py-2.5">Name</th>
+      <th class="px-4 py-2.5">Online</th><th class="px-4 py-2.5">Roles</th><th class="px-4 py-2.5">Brands/Zones</th><th class="px-4 py-2.5">Status</th><th></th>
+    </tr></thead>
+    <tbody>
+      <% @staff.each do |s| %>
+        <tr class="border-b border-slate-100 hover:bg-slate-50">
+          <td class="px-4 py-2 text-xs text-slate-500"><%= s.warehouse.whs_code %></td>
+          <td class="px-4 py-2 font-mono text-xs"><%= s.staff_code %></td>
+          <td class="px-4 py-2 text-sm font-medium"><%= s.name %></td>
+          <td class="px-4 py-2 text-xs">
+            <% if @online_ids.include?(s.id) %><span class="inline-flex items-center gap-1 text-emerald-700 font-semibold">● online</span>
+            <% else %><span class="text-slate-400">○ offline</span><% end %>
+          </td>
+          <td class="px-4 py-2 text-xs"><% s.roles.each do |r| %><span class="inline-block rounded bg-slate-100 text-slate-600 px-1.5 py-0.5 mr-1"><%= r %></span><% end %></td>
+          <td class="px-4 py-2 text-xs text-slate-500"><%= Array(s.brand_ids).join(",") %> <%= Array(s.zones).join(",") %></td>
+          <td class="px-4 py-2"><span class="rounded-full text-[11px] font-semibold px-2 py-0.5 <%= s.active? ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600' %>"><%= s.status.titleize %></span></td>
+          <td class="px-4 py-2 text-right"><%= link_to "Edit", edit_wms_staff_path(s), class: "text-sm font-semibold text-[#1f4b99] hover:underline" if can?(:warehouse_staff, :update) %></td>
+        </tr>
+      <% end %>
+      <% if @staff.empty? %><tr><td colspan="8" class="px-4 py-8 text-center text-sm text-slate-500">No warehouse staff yet.</td></tr><% end %>
+    </tbody>
+  </table>
+</div>

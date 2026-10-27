@@ -83,4 +83,47 @@ FactoryBot.define do
     ordered_at { Time.current }
     client_uuid { SecureRandom.uuid }
   end
+
+  # ---- WMS ----
+  factory :brand do
+    sequence(:code) { |n| "BRND#{n}" }
+    name { "Brand" }
+  end
+
+  factory :warehouse do
+    sequence(:whs_code) { |n| "WH#{n}" }
+    wh_name { "Warehouse" }
+    wms_enabled { true }
+  end
+
+  factory :storage_location do
+    warehouse
+    sequence(:loc_code) { |n| "LOC-#{n}" }
+    loc_type { :pick_rack }
+    pickable { true }
+    slot_capacity { 1 }
+  end
+
+  factory :warehouse_staff do
+    warehouse
+    sequence(:staff_code) { |n| "STF-#{n}" }
+    name { "Staff" }
+    roles { %w[pick] }
+  end
+
+  factory :inventory_lot do
+    warehouse
+    product
+    storage_location { association(:storage_location, warehouse: warehouse) }
+    received_date { Date.current }
+    qty_on_hand { 0 }
+    status { :active }
+  end
+
+  factory :fulfillment_order do
+    warehouse
+    sequence(:reference_no) { |n| "FO-#{n}" }
+    source { :sfa_order }
+    status { :pending }
+  end
 end

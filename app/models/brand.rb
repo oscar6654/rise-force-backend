@@ -8,6 +8,8 @@ class Brand < ApplicationRecord
 
   scope :ordered, -> { order(:sort_order, :name) }
   scope :active, -> { where(status: :active) }
+  # Brands whose stock routes to secured high-value shelf locations in the WMS.
+  scope :high_value, -> { where(high_value: true) }
 
   # Pick an existing brand by name (case-insensitive) or create one, deriving a
   # unique code from the name (create-or-pick from the product form).

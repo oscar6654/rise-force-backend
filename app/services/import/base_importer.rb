@@ -8,12 +8,13 @@ module Import
   class BaseImporter
     # #call returns the JobLog for the run. Pass an existing `log:` to run
     # against a JobLog already created by the controller (background-job path).
-    def initialize(io_or_string, user:, filename: nil, log: nil)
+    def initialize(io_or_string, user:, filename: nil, log: nil, mode: nil)
       raw = io_or_string.respond_to?(:read) ? io_or_string.read : io_or_string.to_s
       @data = normalize_encoding(raw)
       @user = user
       @filename = filename
       @log = log
+      @mode = mode.to_s.presence # importer-specific upload mode (e.g. inventory "replace")
     end
 
     # Excel exports are often Windows-1252 (or UTF-8 with stray non-breaking
@@ -40,6 +41,7 @@ module Import
           log.error_count += 1
           log.rejected_records_data << { line: i + 2, error: e.message, row: row.to_h }
         end
+        after_rows(log)
         log.save!
       end
     end
@@ -49,5 +51,10 @@ module Import
     def import_row(_row)
       raise NotImplementedError
     end
+
+    # Hook run once after every row, inside the JobLog block. Default no-op;
+    # importers with a "replace / refresh" mode override it to reconcile rows
+    # that weren't in the file.
+    def after_rows(_log); end
   end
 end

@@ -47,6 +47,76 @@ RSpec.describe "Order batches console", type: :request do
     expect(rows.first["delivery_date"]).to eq("2026-10-25")
   end
 
+  it "hides a WMS-routed seller's undispatched order from the Ready-to-batch list" do
+    branch = create(:branch)
+    wh = create(:warehouse, branch: branch, wms_enabled: true)
+    seller = create(:seller, branch: branch, warehouse: wh, wms_enabled: true, name: "Warehouse Seller")
+    store = create(:store, branch: branch)
+    order = create(:order, seller: seller, store: store, branch: branch, status: :submitted, total_amount: 255)
+    create(:fulfillment_order, warehouse: wh, order: order, status: :assigned)
+
+    expect(Order.batchable_pending).not_to include(order)
+    expect(Order.unbatched.wms_held).to include(order)
+
+    get order_batches_path
+    expect(response.body).not_to include("Warehouse Seller")
+    expect(response.body).to include("WMS")
+
+    # Once dispatched, it becomes batchable and shows up again.
+    FulfillmentOrder.where(order: order).update_all(status: FulfillmentOrder.statuses[:dispatched])
+    expect(Order.batchable_pending).to include(order)
+  end
+
+  it "holds a split WMS order until EVERY fulfillment order is dispatched" do
+    branch = create(:branch)
+    wh = create(:warehouse, branch: branch, wms_enabled: true)
+    seller = create(:seller, branch: branch, warehouse: wh, wms_enabled: true)
+    store = create(:store, branch: branch)
+    order = create(:order, seller: seller, store: store, branch: branch, status: :submitted, total_amount: 100)
+    child_a = create(:fulfillment_order, warehouse: wh, order: order, status: :dispatched)
+    child_b = create(:fulfillment_order, warehouse: wh, order: order, status: :checked) # sibling not dispatched yet
+
+    # One child dispatched, one not → still held, not batchable.
+    expect(Order.batchable_pending).not_to include(order)
+    expect(OrderBatch.build_for(branch: branch, seller: seller, user: user)).to be_nil
+
+    child_b.update!(status: :dispatched)
+    expect(Order.batchable_pending).to include(order)
+    expect(OrderBatch.build_for(branch: branch, seller: seller, user: user)).to be_present
+    _ = child_a
+  end
+
+  it "does NOT batch a WMS-routed seller's order until its fulfillment order is dispatched" do
+    branch = create(:branch)
+    wh = create(:warehouse, branch: branch, wms_enabled: true)
+    seller = create(:seller, branch: branch, warehouse: wh, wms_enabled: true)
+    store = create(:store, branch: branch)
+    order = create(:order, seller: seller, store: store, branch: branch, status: :submitted, total_amount: 50)
+
+    # No dispatched fulfillment order yet → nothing to batch.
+    expect(OrderBatch.build_for(branch: branch, seller: seller, user: user)).to be_nil
+
+    # Once the fulfillment order is dispatched, the order becomes batchable.
+    create(:fulfillment_order, warehouse: wh, order: order, status: :dispatched)
+    batch = OrderBatch.build_for(branch: branch, seller: seller, user: user)
+    expect(batch).to be_present
+    expect(order.reload.order_batch_id).to eq(batch.id)
+  end
+
+  it "emits shipped_qty (not ordered qty) in the CSV when present" do
+    branch = create(:branch)
+    seller = create(:seller, branch: branch)
+    store  = create(:store, branch: branch)
+    prod   = create(:product, it_barcode: "111", cs_barcode: "222")
+    order  = create(:order, seller: seller, store: store, branch: branch, status: :submitted, total_amount: 50)
+    order.order_lines.create!(product: prod, quantity: 10, uom: :case_uom, unit_price: 25, line_total: 250, shipped_qty: 7)
+    batch = OrderBatch.build_for(branch: branch, seller: seller, user: nil)
+
+    get download_order_batch_path(batch)
+    rows = CSV.parse(response.body, headers: true)
+    expect(rows.first["qty_cases"].to_i).to eq(7) # shipped, not the ordered 10
+  end
+
   it "still batches a same-branch order when branch_id is omitted" do
     branch = create(:branch)
     seller = create(:seller, branch: branch)

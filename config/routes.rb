@@ -85,6 +85,30 @@ Rails.application.routes.draw do
     end
   end
 
+  # ---- WMS (Warehouse Management System) console ----
+  namespace :wms do
+    resources :storage_locations, except: [:show, :destroy]
+    resources :inventory, only: [:index] do
+      member { get :move; post :relocate }
+    end
+    resources :receipts, only: [:index, :show]
+    resources :staff, except: [:show, :destroy]
+    resources :demand, only: [:index, :show] do
+      member { post :allocate; post :reassign }
+      collection { post :build }
+    end
+    resources :cycle_counts, only: [:index, :show, :new, :create] do
+      member { post :reconcile; post :cancel }
+    end
+    resources :stock_movements, only: [:index]
+    resources :returns, only: [:index, :new, :create, :show] do
+      member { post :process_line }
+    end
+    resources :replenishments, only: [:index, :new, :create] do
+      member { post :execute; post :cancel }
+    end
+  end
+
   # Bulk CSV upload for masters
   get  "imports/:kind/new"    => "imports#new",    as: :new_import
   get  "imports/:kind/sample" => "imports#sample", as: :sample_import
@@ -165,6 +189,34 @@ Rails.application.routes.draw do
       get "me/display_targets" => "me#display_targets"
       get "me/display_targets/summary" => "me#display_summary"
       get "me/display_targets/stores/:store_id" => "me#display_store"
+
+      # WMS mobile (picker / checker / receiver / counter)
+      namespace :wms do
+        get  "receipts"                 => "receipts#index"
+        get  "receipts/:id"             => "receipts#show"
+        post "receiving/scan"           => "receiving#scan"
+        get  "putaway/pending"          => "putaway#pending"
+        get  "putaway/:lot_id/suggest"  => "putaway#suggest"
+        post "putaway/:lot_id/confirm"  => "putaway#confirm"
+        get  "tasks"                    => "tasks#index"
+        get  "tasks/:id"                => "tasks#show"
+        post "tasks/:id/start"          => "tasks#start"
+        post "tasks/:id/finish_short"   => "tasks#finish_short"
+        post "picks/:allocation_id/confirm" => "picks#confirm"
+        post "picks/:allocation_id/undo"    => "picks#undo"
+        get  "checks"                   => "checks#index"
+        get  "checks/:id"               => "checks#show"
+        post "checks/:id/verify"        => "checks#verify"
+        get  "counts"                   => "counts#index"
+        post "counts/:id/submit"        => "counts#submit"
+        post "moves"                    => "moves#create"
+        get  "locations/lookup"         => "locations#lookup"
+        get  "replenishments"           => "replenishments#index"
+        post "replenishments/manual"    => "replenishments#manual"
+        post "replenishments/:id/execute" => "replenishments#execute"
+        get  "returns"                  => "returns#index"
+        post "returns/:line_id/process" => "returns#process_line"
+      end
     end
   end
 

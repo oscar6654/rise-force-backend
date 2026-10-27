@@ -1,0 +1,22 @@
+<% content_for :page_title, "Receipt #{@receipt.po_ref}" %>
+<div class="mb-4 text-sm text-slate-600"><%= @receipt.warehouse.whs_code %> · status <strong><%= @receipt.status.titleize %></strong></div>
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <table class="w-full border-collapse min-w-[560px]">
+    <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+      <th class="px-4 py-2.5">SKU</th><th class="px-4 py-2.5">Barcode</th><th class="px-4 py-2.5 text-right">Expected</th><th class="px-4 py-2.5 text-right">Received</th><th class="px-4 py-2.5">UoM</th><th class="px-4 py-2.5">Status</th>
+    </tr></thead>
+    <tbody>
+      <% @receipt.receipt_lines.each do |l| %>
+        <tr class="border-b border-slate-100">
+          <td class="px-4 py-2 font-mono text-xs"><%= l.product&.sku || "—" %></td>
+          <td class="px-4 py-2 font-mono text-xs"><%= l.it_barcode %></td>
+          <td class="px-4 py-2 text-right text-sm"><%= l.expected_qty.to_i %></td>
+          <td class="px-4 py-2 text-right text-sm font-semibold"><%= l.received_qty.to_i %></td>
+          <td class="px-4 py-2 text-xs"><%= l.uom %></td>
+          <td class="px-4 py-2 text-xs"><%= l.status.titleize %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>
+<div class="mt-4"><%= link_to "← Back to receipts", wms_receipts_path, class: "text-sm text-[#1f4b99] hover:underline" %></div>

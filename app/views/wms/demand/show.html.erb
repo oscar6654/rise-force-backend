@@ -1,0 +1,104 @@
+<% content_for :page_title, "Pick job #{@order.reference_no}" %>
+<% content_for :page_actions do %>
+  <% if can?(:fulfillment_order, :update) %>
+    <%= button_to "Re-allocate", allocate_wms_demand_path(@order), class: "rounded-md border border-slate-300 text-sm font-semibold px-3 py-2 hover:bg-slate-50" %>
+  <% end %>
+<% end %>
+
+<div class="mb-4 text-sm text-slate-600">
+  <%= @order.warehouse.whs_code %> · status <strong><%= @order.status.titleize %></strong>
+  · assigned <strong><%= @order.assigned_to&.name || "—" %></strong>
+  <% if @order.delivery_date %> · deliver <strong><%= @order.delivery_date %></strong><% end %>
+  <% if @order.remarks.present? %><div class="mt-1 text-slate-500">Remarks: <%= @order.remarks %></div><% end %>
+</div>
+
+<% unless @order.status.in?(%w[dispatched cancelled]) %>
+  <div class="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+    <div class="text-xs font-semibold text-slate-600 mb-2">Reassign picker (override auto-assignment)</div>
+    <% if can?(:fulfillment_order, :update) %>
+      <%= form_with url: reassign_wms_demand_path(@order), method: :post, local: true, class: "flex flex-wrap items-center gap-2" do %>
+        <%= select_tag :warehouse_staff_id,
+              options_from_collection_for_select(@pickers, :id, ->(p) { "#{@online_ids.include?(p.id) ? '● online' : '○ offline'} · #{p.name} (#{p.staff_code})#{" · brands #{p.brand_ids.join(',')}" if p.brand_ids.any?}" }, @order.assigned_to_id),
+              include_blank: "— choose picker —",
+              class: "rounded-md border border-slate-300 px-3 py-2 text-sm min-w-[300px]", data: { controller: "tom-select" } %>
+        <%= submit_tag "Reassign", class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f] cursor-pointer" %>
+      <% end %>
+      <% if @online_ids.empty? %>
+        <p class="text-[11px] text-amber-700 mt-2">⚠ No pickers are currently online in this warehouse — auto-assignment leaves jobs unassigned until a picker logs in. You can still force-assign one above.</p>
+      <% end %>
+      <p class="text-[11px] text-slate-400 mt-2">
+        Currently <strong><%= @order.assigned_to&.name || "unassigned" %></strong>.
+        <% if @order.parent_fulfillment_order_id %>This is a split child job.<% end %>
+        <% if @order.child_fulfillment_orders.any? %>This job was split by brand/zone — reassign each child job (listed under its reference) to a specific picker.<% end %>
+        Re-allocate first if you moved stock; reassigning only changes who picks.
+      </p>
+    <% else %>
+      <p class="text-sm text-slate-500">You don't have permission to reassign.</p>
+    <% end %>
+  </div>
+<% end %>
+
+<% if @order.child_fulfillment_orders.any? %>
+  <h3 class="text-sm font-semibold text-slate-700 mb-2">Split into picker jobs</h3>
+  <div class="rounded-xl border border-slate-200 bg-white overflow-hidden mb-6">
+    <table class="w-full border-collapse">
+      <tbody>
+        <% @order.child_fulfillment_orders.includes(:assigned_to).order(:id).each do |child| %>
+          <tr class="border-b border-slate-100">
+            <td class="px-4 py-2 font-mono text-xs"><%= child.reference_no %></td>
+            <td class="px-4 py-2 text-xs"><%= child.status.titleize %></td>
+            <td class="px-4 py-2 text-xs">picker: <strong><%= child.assigned_to&.name || "—" %></strong></td>
+            <td class="px-4 py-2 text-right"><%= link_to "Open / reassign", wms_demand_path(child), class: "text-sm font-semibold text-[#1f4b99] hover:underline" %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>
+
+<h3 class="text-sm font-semibold text-slate-700 mb-2">Lines</h3>
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden mb-6">
+  <table class="w-full border-collapse min-w-[560px]">
+    <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+      <th class="px-4 py-2.5">SKU</th><th class="px-4 py-2.5">Description</th><th class="px-4 py-2.5 text-right">Demand</th>
+      <th class="px-4 py-2.5 text-right">Alloc</th><th class="px-4 py-2.5 text-right">Picked</th><th class="px-4 py-2.5 text-right">Checked</th><th class="px-4 py-2.5">Status</th>
+    </tr></thead>
+    <tbody>
+      <% @order.fulfillment_lines.each do |l| %>
+        <tr class="border-b border-slate-100">
+          <td class="px-4 py-2 font-mono text-xs"><%= l.product&.sku %></td>
+          <td class="px-4 py-2 text-sm"><%= l.product&.description %></td>
+          <td class="px-4 py-2 text-right text-sm"><%= l.qty_demanded.to_i %></td>
+          <td class="px-4 py-2 text-right text-xs"><%= l.qty_allocated.to_i %></td>
+          <td class="px-4 py-2 text-right text-xs"><%= l.qty_picked.to_i %></td>
+          <td class="px-4 py-2 text-right text-xs"><%= l.qty_checked.to_i %></td>
+          <td class="px-4 py-2 text-xs"><%= l.status.titleize %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>
+
+<h3 class="text-sm font-semibold text-slate-700 mb-2">Pick allocations (FIFO)</h3>
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <table class="w-full border-collapse min-w-[560px]">
+    <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+      <th class="px-4 py-2.5">Location</th><th class="px-4 py-2.5">SKU</th><th class="px-4 py-2.5">Lot</th>
+      <th class="px-4 py-2.5 text-right">Alloc</th><th class="px-4 py-2.5 text-right">Picked</th><th class="px-4 py-2.5">Status</th>
+    </tr></thead>
+    <tbody>
+      <% @order.pick_allocations.order(:pick_sequence).each do |a| %>
+        <tr class="border-b border-slate-100">
+          <td class="px-4 py-2 font-mono text-xs"><%= a.storage_location&.loc_code %></td>
+          <td class="px-4 py-2 font-mono text-xs"><%= a.product&.sku %></td>
+          <td class="px-4 py-2 text-xs text-slate-500"><%= a.inventory_lot&.lot_code %></td>
+          <td class="px-4 py-2 text-right text-sm"><%= a.qty_allocated.to_i %></td>
+          <td class="px-4 py-2 text-right text-xs"><%= a.qty_picked.to_i %></td>
+          <td class="px-4 py-2 text-xs"><%= a.status.titleize %></td>
+        </tr>
+      <% end %>
+      <% if @order.pick_allocations.empty? %><tr><td colspan="6" class="px-4 py-6 text-center text-sm text-slate-500">Not yet allocated.</td></tr><% end %>
+    </tbody>
+  </table>
+</div>
+<div class="mt-4"><%= link_to "← Back to pick jobs", wms_demand_index_path, class: "text-sm text-[#1f4b99] hover:underline" %></div>

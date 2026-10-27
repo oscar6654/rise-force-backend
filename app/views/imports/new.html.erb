@@ -5,13 +5,19 @@
 
   <div class="rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600 mb-4 font-mono">
     <% if @kind == "products" %>
-      itemkey, desc1, desc2, brand_code, category_code, item_tier, abc_class, stock_uom, purchase_uom, selling_uom, items_per_case, it_barcode, cs_barcode, sw_barcode, item_cost, case_cost, tax, status
+      itemkey, desc1, desc2, brand_code, category_code, item_tier, abc_class, stock_uom, purchase_uom, selling_uom, items_per_case, items_per_shrinkwrap, shrinkwraps_per_case, casesperpallet, layersperpallet, casestatfactor, caseheight, caseweight, casevolume, it_barcode, cs_barcode, sw_barcode, item_cost, case_cost, tax, status
     <% elsif @kind == "product_channels" %>
       item_key, channel_code, available
     <% elsif @kind == "promos" %>
       code, name, mechanic, basis, it_barcode, tiers, min_qty, reward_qty, reward_barcode, channel_code, category, branch_code, start_date, end_date, per_store_limit, status
-    <% else %>
+    <% elsif @kind == "inventory" %>
+      warehouse_code, loc_code, itemkey, it_barcode, lot_code, received_date, expiry_date, qty_on_hand, uom
+    <% elsif @kind == "dispatch_orders" %>
+      warehouse_code, reference_no, store_code, demand_date, delivery_date, remarks, it_barcode, quantity
+    <% elsif @kind == "stores" %>
       store_code, name, owner_name, address, contact_number, latitude, longitude, branch_code, channel_code, category, discount, seller_code, route_code, route_name, vcsi_customer_ref, segment, chain, sub_chain, distribution_type, tin, visit_frequency, week_pattern, visit_day, visit_sequence
+    <% else %>
+      Download the <strong>Example CSV</strong> below for this upload's exact columns and order.
     <% end %>
   </div>
   <% if @kind == "stores" %>
@@ -44,6 +50,14 @@
       <li><code>bundle_price</code> — <code>min_qty</code> pcs for a fixed <code>fixed_price</code> (e.g. 3 for ₱100).</li>
       <li><code>discount_percent</code> — flat <code>discount_rate</code> (0.05 = 5%). <code>discount_amount</code> — flat <code>discount_amount</code> ₱ off per piece.</li>
     </ul>
+  <% elsif @kind == "dispatch_orders" %>
+    <p class="text-xs text-slate-500 mb-2">The <strong>manual</strong> way to create pick jobs — for dispatch / sales orders raised <em>outside</em> the app (an SFA seller order flows into the WMS automatically). It does <strong>not</strong> create stores or products; it creates a <strong>pick job</strong> in the warehouse.</p>
+    <ul class="text-xs text-slate-500 mb-4 space-y-0.5 list-disc pl-4">
+      <li><strong>Identify the item by its barcode only.</strong> Put the <code>it_barcode</code> and the <code>quantity</code> in <strong>pieces</strong> — no itemkey. The system finds the product, and <strong>FIFO picks the oldest stock, which resolves the exact itemkey</strong> (and the case barcode when picking cases) — so the correct itemkey travels onto the pick list.</li>
+      <li><strong>Pieces → cases automatically.</strong> The piece quantity is split into <strong>whole cases</strong> (picked from case bins) plus any <strong>sub-case remainder</strong> (loose, from the piece zone), using pieces-per-case from the product master. The picker app shows it as <strong>cases + pieces</strong>.</li>
+      <li><strong>One row = one item line.</strong> Rows sharing a <code>reference_no</code> (same <code>warehouse_code</code>) are grouped into one pick job, then allocated (FIFO) and assigned to a picker automatically.</li>
+      <li><code>store_code</code> (optional) tags the destination store; <code>demand_date</code> / <code>delivery_date</code> / <code>remarks</code> carry onto the job.</li>
+    </ul>
   <% end %>
 
   <div class="rounded-lg border border-slate-200 bg-white p-3 mb-4 flex items-center gap-3">
@@ -52,6 +66,19 @@
   </div>
 
   <%= form_with url: imports_path(@kind), method: :post, local: true, multipart: true do %>
+    <% if @kind == "inventory" %>
+      <div class="rounded-lg border border-slate-200 bg-white p-3 mb-4 space-y-2">
+        <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Upload mode</div>
+        <label class="flex items-start gap-2 text-sm">
+          <%= radio_button_tag :mode, "adjust", true, class: "mt-1" %>
+          <span><strong>Adjust / append</strong> — set the on-hand for the lots in this file and write the difference to the ledger. Everything not in the file is <strong>left untouched</strong>. Use for a one-time top-up or correction.</span>
+        </label>
+        <label class="flex items-start gap-2 text-sm">
+          <%= radio_button_tag :mode, "replace", false, class: "mt-1" %>
+          <span><strong>Replace / refresh all</strong> — set the listed lots <em>and</em> <strong>zero out any other free stock</strong> in the same warehouse(s) that isn't in this file (a full snapshot). Reserved stock already allocated/locked to a pick is kept. Use when the file is the complete truth.</span>
+        </label>
+      </div>
+    <% end %>
     <%= file_field_tag :file, accept: ".csv", class: "block w-full text-sm text-slate-600 mb-4" %>
     <div class="flex items-center gap-2">
       <%= submit_tag "Upload CSV", class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-4 py-2 hover:bg-[#17386f] cursor-pointer" %>

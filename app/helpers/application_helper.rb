@@ -40,6 +40,17 @@ module ApplicationHelper
         NavItem.new(label: "Planograms",     path: planograms_path,       icon: "▥", resource: :planogram),
         NavItem.new(label: "Promos",         path: promos_path,           icon: "%", resource: :promo)
       ],
+      "Warehouse" => [
+        NavItem.new(label: "Pick jobs",        path: wms_demand_index_path,       icon: "📦", resource: :fulfillment_order),
+        NavItem.new(label: "Receipts / ASN",   path: wms_receipts_path,           icon: "⭳", resource: :receipt),
+        NavItem.new(label: "Inventory (lots)", path: wms_inventory_index_path,    icon: "▦", resource: :inventory),
+        NavItem.new(label: "Storage locations", path: wms_storage_locations_path, icon: "▤", resource: :storage_location),
+        NavItem.new(label: "Cycle counts (IRA)", path: wms_cycle_counts_path,     icon: "☑", resource: :cycle_count),
+        NavItem.new(label: "Replenishment",    path: wms_replenishments_path,     icon: "⇅", resource: :replenishment),
+        NavItem.new(label: "Returns & quality", path: wms_returns_path,           icon: "↩", resource: :wms_return),
+        NavItem.new(label: "WMS staff",        path: wms_staff_index_path,        icon: "◍", resource: :warehouse_staff),
+        NavItem.new(label: "Stock ledger",     path: wms_stock_movements_path,    icon: "≣", resource: :stock_movement)
+      ],
       "Administration" => [
         NavItem.new(label: "Users", path: admin_users_path, icon: "◉", resource: :user),
         NavItem.new(label: "Roles & permissions", path: admin_roles_path, icon: "⚿", resource: :role),

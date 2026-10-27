@@ -1,0 +1,48 @@
+<% content_for :page_title, "Returns & quality" %>
+<% content_for :page_actions do %>
+  <%= link_to "Upload returns CSV", new_import_path("returns"), class: "rounded-md border border-slate-300 text-sm font-semibold px-3 py-2 hover:bg-slate-50" if can?(:wms_return, :create) %>
+  <%= link_to "Ad-hoc return", new_wms_return_path, class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" if can?(:wms_return, :create) %>
+<% end %>
+
+<h3 class="text-sm font-semibold text-slate-700 mb-2">Returns to process</h3>
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden mb-6">
+  <table class="w-full border-collapse min-w-[560px]">
+    <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+      <th class="px-4 py-2.5">WH</th><th class="px-4 py-2.5">Ref</th><th class="px-4 py-2.5">Store</th><th class="px-4 py-2.5">Lines</th><th class="px-4 py-2.5">Status</th><th></th>
+    </tr></thead>
+    <tbody>
+      <% @returns.each do |r| %>
+        <tr class="border-b border-slate-100 hover:bg-slate-50">
+          <td class="px-4 py-2 text-xs text-slate-500"><%= r.warehouse.whs_code %></td>
+          <td class="px-4 py-2 font-mono text-xs"><%= r.ref %></td>
+          <td class="px-4 py-2 text-xs"><%= r.store&.store_code || "—" %></td>
+          <td class="px-4 py-2 text-sm"><%= r.wms_return_lines.where(status: :pending).count %> / <%= r.wms_return_lines.size %></td>
+          <td class="px-4 py-2 text-xs"><%= r.status.titleize %></td>
+          <td class="px-4 py-2 text-right"><%= link_to "Process", wms_return_path(r), class: "text-sm font-semibold text-[#1f4b99] hover:underline" %></td>
+        </tr>
+      <% end %>
+      <% if @returns.empty? %><tr><td colspan="6" class="px-4 py-6 text-center text-sm text-slate-500">No returns to process. Upload a returns CSV.</td></tr><% end %>
+    </tbody>
+  </table>
+</div>
+
+<h3 class="text-sm font-semibold text-slate-700 mb-2">Recent dispositions (ledger)</h3>
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <table class="w-full border-collapse min-w-[560px]">
+    <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+      <th class="px-4 py-2.5">When</th><th class="px-4 py-2.5">Disposition</th><th class="px-4 py-2.5">SKU</th><th class="px-4 py-2.5 text-right">Qty</th><th class="px-4 py-2.5">Location</th>
+    </tr></thead>
+    <tbody>
+      <% @recent.each do |m| %>
+        <tr class="border-b border-slate-100">
+          <td class="px-4 py-2 text-xs text-slate-500"><%= m.occurred_at&.strftime("%d %b %H:%M") %></td>
+          <td class="px-4 py-2 text-xs"><%= m.movement_type.titleize %></td>
+          <td class="px-4 py-2 font-mono text-xs"><%= m.product&.sku %></td>
+          <td class="px-4 py-2 text-right text-sm"><%= m.quantity.to_i %></td>
+          <td class="px-4 py-2 font-mono text-xs"><%= m.storage_location&.loc_code %></td>
+        </tr>
+      <% end %>
+      <% if @recent.empty? %><tr><td colspan="5" class="px-4 py-6 text-center text-sm text-slate-500">No dispositions yet.</td></tr><% end %>
+    </tbody>
+  </table>
+</div>

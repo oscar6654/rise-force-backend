@@ -21,6 +21,21 @@
       <%= f.label :address, class: "block text-sm font-medium text-slate-700 mb-1" %>
       <%= f.text_field :address, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
     </div>
+    <div class="md:col-span-2 border-t border-slate-100 pt-4 mt-1">
+      <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
+        <%= f.check_box :wms_enabled, class: "rounded border-slate-300" %>
+        Enable Warehouse Management (WMS) — orders for this warehouse auto-flow to picking
+      </label>
+    </div>
+    <div>
+      <%= f.label :allocation_strategy, "Picker assignment", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.select :allocation_strategy, Warehouse.allocation_strategies.keys.map { |s| [s.titleize, s] }, {}, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :piece_pick_zone, "Piece-pick zone (loose/broken-case area)", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :piece_pick_zone, placeholder: "e.g. LOOSE — blank = no case/piece split", class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+      <p class="text-[11px] text-slate-400 mt-1">Locations in this zone are picked as loose pieces; everything else is full-case pick. Leave blank to pick cases + pieces together from any bin.</p>
+    </div>
   </div>
   <div class="mt-5 flex items-center gap-2">
     <%= f.submit(warehouse.persisted? ? "Save changes" : "Create warehouse", class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-4 py-2 hover:bg-[#17386f] cursor-pointer") %>

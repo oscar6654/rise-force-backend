@@ -2,7 +2,11 @@ module Import
   # CSV headers (vcsi product_masters style):
   #   itemkey, desc1, desc2, brand_code, category_code, item_tier, abc_class,
   #   stock_uom, purchase_uom, selling_uom, items_per_case,
+  #   items_per_shrinkwrap, shrinkwraps_per_case, casesperpallet, layersperpallet,
+  #   casestatfactor, caseheight, caseweight, casevolume,
   #   it_barcode, cs_barcode, sw_barcode, item_cost, case_cost, tax, status
+  # The pallet/pack/dimension columns feed WMS slotting & capacity (names mirror
+  # vcsi `product_masters` 1:1 so the master round-trips between the two systems).
   class ProductsImporter < BaseImporter
     JOB_TYPE = :product_import
 
@@ -23,6 +27,17 @@ module Import
       product.purchase_uom = row["purchase_uom"].presence
       product.selling_uom  = row["selling_uom"].presence
       product.pcs_per_case = num(row["items_per_case"] || row["pcs_per_case"])
+      # WMS packaging hierarchy + pallet config + case dimensions (vcsi names).
+      # Only overwrite when the header is actually present, so re-uploading an
+      # older product file (without these columns) doesn't wipe the pallet config.
+      product.items_per_shrinkwrap = num(row["items_per_shrinkwrap"] || row["items_per_shrinkwraps"]) if row.key?("items_per_shrinkwrap") || row.key?("items_per_shrinkwraps")
+      product.shrinkwraps_per_case = num(row["shrinkwraps_per_case"]) if row.key?("shrinkwraps_per_case")
+      product.casesperpallet       = num(row["casesperpallet"])       if row.key?("casesperpallet")
+      product.layersperpallet      = num(row["layersperpallet"])      if row.key?("layersperpallet")
+      product.casestatfactor       = num(row["casestatfactor"])       if row.key?("casestatfactor")
+      product.caseheight           = num(row["caseheight"])           if row.key?("caseheight")
+      product.caseweight           = num(row["caseweight"])           if row.key?("caseweight")
+      product.casevolume           = num(row["casevolume"])           if row.key?("casevolume")
       product.it_barcode   = row["it_barcode"].presence
       product.cs_barcode   = row["cs_barcode"].presence
       product.sw_barcode   = row["sw_barcode"].presence

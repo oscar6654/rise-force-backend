@@ -48,7 +48,8 @@ class SellersController < ApplicationController
     permitted = params.require(:seller).permit(:seller_code, :name, :branch_id, :status,
                                                :device_id, :vcsi_sales_rep_ref, :user_id, :pin,
                                                :supervisor_name, :gsm_name, :om_name, :sales_target,
-                                               :diser_code, :diser_name, :diser_pin, :primary_seller_id, :section)
+                                               :diser_code, :diser_name, :diser_pin, :primary_seller_id, :section,
+                                               :warehouse_id, :wms_enabled)
     permitted[:branch_id] = current_user.branch_id if current_user.branch_scoped?
     permitted.delete(:pin) if permitted[:pin].blank?             # blank -> keep existing PIN
     permitted.delete(:diser_pin) if permitted[:diser_pin].blank? # blank -> keep existing diser PIN

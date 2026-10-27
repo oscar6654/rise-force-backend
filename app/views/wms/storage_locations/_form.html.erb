@@ -1,0 +1,53 @@
+<%= form_with model: storage_location, url: (storage_location.persisted? ? wms_storage_location_path(storage_location) : wms_storage_locations_path), local: true do |f| %>
+  <%= render "shared/form_errors", model: storage_location %>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <%= f.label :warehouse_id, "Warehouse", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.collection_select :warehouse_id, Warehouse.order(:whs_code), :id, :whs_code, { include_blank: "—" }, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :loc_code, "Location code (scannable)", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :loc_code, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono" %>
+    </div>
+    <div>
+      <%= f.label :name, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :name, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :zone, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :zone, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :loc_type, "Type", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.select :loc_type, StorageLocation.loc_types.keys.map { |s| [s.titleize, s] }, {}, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :pick_sequence, "Pick sequence (lower = nearer)", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.number_field :pick_sequence, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :slot_capacity, "Slot capacity (pallets)", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.number_field :slot_capacity, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div class="flex items-center gap-6 pt-6">
+      <label class="flex items-center gap-2 text-sm"><%= f.check_box :pickable, class: "rounded border-slate-300" %> Pickable</label>
+      <label class="flex items-center gap-2 text-sm"><%= f.check_box :allow_mixed_lots, class: "rounded border-slate-300" %> Mixed lots</label>
+    </div>
+    <div>
+      <%= label_tag :"storage_location[allowed_abc_classes_str]", "Accepts ABC classes (e.g. A;B — blank = any)", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= text_field_tag :"storage_location[allowed_abc_classes_str]", Array(storage_location.allowed_abc_classes).join(";"), class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= label_tag :"storage_location[allowed_brand_ids_str]", "Accepts brand IDs (e.g. 1;2 — blank = any)", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= text_field_tag :"storage_location[allowed_brand_ids_str]", Array(storage_location.allowed_brand_ids).join(";"), class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :status, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.select :status, StorageLocation.statuses.keys.map { |s| [s.titleize, s] }, {}, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+  </div>
+  <div class="mt-5 flex items-center gap-2">
+    <%= f.submit(storage_location.persisted? ? "Save changes" : "Create location", class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-4 py-2 hover:bg-[#17386f] cursor-pointer") %>
+    <%= link_to "Cancel", wms_storage_locations_path, class: "text-sm text-slate-500 hover:underline px-2" %>
+  </div>
+<% end %>

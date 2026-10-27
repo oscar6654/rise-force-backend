@@ -1,0 +1,30 @@
+<% content_for :page_title, "Receipts / ASN" %>
+<% content_for :page_actions do %>
+  <%= link_to "Upload ASN CSV", new_import_path("asn"), class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-3 py-2 hover:bg-[#17386f]" if can?(:receipt, :create) %>
+<% end %>
+
+<form class="mb-3 flex gap-2" method="get">
+  <%= select_tag :warehouse_id, options_from_collection_for_select(@warehouses, :id, :whs_code, params[:warehouse_id]), include_blank: "All warehouses", class: "rounded-md border border-slate-300 px-3 py-2 text-sm", onchange: "this.form.submit()" %>
+</form>
+
+<div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <table class="w-full border-collapse min-w-[560px]">
+    <thead><tr class="bg-slate-50 border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+      <th class="px-4 py-2.5">WH</th><th class="px-4 py-2.5">PO ref</th><th class="px-4 py-2.5">Lines</th><th class="px-4 py-2.5">Status</th><th class="px-4 py-2.5">Created</th><th></th>
+    </tr></thead>
+    <tbody>
+      <% @receipts.each do |r| %>
+        <tr class="border-b border-slate-100 hover:bg-slate-50">
+          <td class="px-4 py-2 text-xs text-slate-500"><%= r.warehouse.whs_code %></td>
+          <td class="px-4 py-2 font-mono text-xs"><%= r.po_ref %></td>
+          <td class="px-4 py-2 text-sm"><%= r.receipt_lines.size %></td>
+          <td class="px-4 py-2 text-xs"><%= r.status.titleize %></td>
+          <td class="px-4 py-2 text-xs text-slate-500"><%= r.created_at.strftime("%d %b %H:%M") %></td>
+          <td class="px-4 py-2 text-right"><%= link_to "View", wms_receipt_path(r), class: "text-sm font-semibold text-[#1f4b99] hover:underline" %></td>
+        </tr>
+      <% end %>
+      <% if @receipts.empty? %><tr><td colspan="6" class="px-4 py-8 text-center text-sm text-slate-500">No receipts yet. Upload an ASN CSV.</td></tr><% end %>
+    </tbody>
+  </table>
+</div>
+<div class="mt-3"><%= paginate @receipts if respond_to?(:paginate) %></div>

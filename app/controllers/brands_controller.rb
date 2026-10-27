@@ -38,6 +38,6 @@ class BrandsController < ApplicationController
   end
 
   def brand_params
-    params.require(:brand).permit(:code, :name, :sort_order, :status)
+    params.require(:brand).permit(:code, :name, :sort_order, :status, :high_value)
   end
 end

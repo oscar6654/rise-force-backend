@@ -1,0 +1,57 @@
+<%= form_with model: @staff, url: (@staff.persisted? ? wms_staff_path(@staff) : wms_staff_index_path), local: true do |f| %>
+  <%= render "shared/form_errors", model: @staff %>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <%= f.label :warehouse_id, "Warehouse", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.collection_select :warehouse_id, Warehouse.order(:whs_code), :id, :whs_code, { include_blank: "—" }, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :seller_id, "Linked seller (optional)", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.collection_select :seller_id, Seller.order(:seller_code), :id, :seller_code, { include_blank: "—" }, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm", data: { controller: "tom-select" } %>
+    </div>
+    <div>
+      <%= f.label :staff_code, "Staff code (login)", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :staff_code, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono" %>
+    </div>
+    <div>
+      <%= f.label :name, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.text_field :name, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div class="md:col-span-2">
+      <span class="block text-sm font-medium text-slate-700 mb-1">Roles (a staff can hold several)</span>
+      <div class="flex flex-wrap gap-4">
+        <% WarehouseStaff::ROLES.each do |role| %>
+          <label class="flex items-center gap-2 text-sm">
+            <%= check_box_tag "warehouse_staff[roles][]", role, @staff.roles.include?(role), class: "rounded border-slate-300" %> <%= role.titleize %>
+          </label>
+        <% end %>
+      </div>
+    </div>
+    <div>
+      <%= label_tag :"warehouse_staff[brand_ids_str]", "Owned brand IDs (e.g. 1;2)", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= text_field_tag :"warehouse_staff[brand_ids_str]", Array(@staff.brand_ids).join(";"), class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= label_tag :"warehouse_staff[zones_str]", "Owned zones (e.g. A;B)", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= text_field_tag :"warehouse_staff[zones_str]", Array(@staff.zones).join(";"), class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div>
+      <%= f.label :pin, "PIN (blank = keep / shared)", class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.password_field :pin, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm", autocomplete: "new-password" %>
+    </div>
+    <div>
+      <%= f.label :status, class: "block text-sm font-medium text-slate-700 mb-1" %>
+      <%= f.select :status, WarehouseStaff.statuses.keys.map { |s| [s.titleize, s] }, {}, class: "w-full rounded-md border border-slate-300 px-3 py-2 text-sm" %>
+    </div>
+    <div class="md:col-span-2">
+      <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
+        <%= f.check_box :require_scan, class: "rounded border-slate-300" %>
+        Mandate scanning — must scan an item before entering a quantity (pick / receive / count)
+      </label>
+    </div>
+  </div>
+  <div class="mt-5 flex items-center gap-2">
+    <%= f.submit(@staff.persisted? ? "Save changes" : "Create staff", class: "rounded-md bg-[#1f4b99] text-white text-sm font-semibold px-4 py-2 hover:bg-[#17386f] cursor-pointer") %>
+    <%= link_to "Cancel", wms_staff_index_path, class: "text-sm text-slate-500 hover:underline px-2" %>
+  </div>
+<% end %>

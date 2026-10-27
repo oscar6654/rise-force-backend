@@ -38,6 +38,7 @@ class WarehousesController < ApplicationController
   end
 
   def warehouse_params
-    params.require(:warehouse).permit(:whs_code, :wh_name, :branch_id, :address, :status)
+    params.require(:warehouse).permit(:whs_code, :wh_name, :branch_id, :address, :status,
+                                      :wms_enabled, :allocation_strategy, :piece_pick_zone)
   end
 end

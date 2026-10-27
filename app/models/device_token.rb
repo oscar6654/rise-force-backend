@@ -1,7 +1,8 @@
 require "digest"
 
 class DeviceToken < ApplicationRecord
-  belongs_to :seller, optional: true # nil for a future manager token
+  belongs_to :seller, optional: true          # nil for a manager / warehouse-staff token
+  belongs_to :warehouse_staff, optional: true # set for a WMS picker/checker login
 
   validates :jti, presence: true, uniqueness: true
 

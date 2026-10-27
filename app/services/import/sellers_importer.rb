@@ -42,6 +42,8 @@ module Import
       set(seller, :diser_code, row["diser_code"])
       set(seller, :diser_name, row["diser_name"])
       set_primary(seller, row["primary_seller_code"])
+      assign_warehouse(seller, row)
+      seller.wms_enabled = truthy_wms(row["wms_enabled"]) if row.key?("wms_enabled") && row["wms_enabled"].to_s.strip.present?
 
       # PINs go through has_secure_password; blank leaves the existing one.
       seller.pin = row["pin"].to_s.strip if row["pin"].present?
@@ -99,6 +101,22 @@ module Import
 
         seller.branch = @default_branch
       end
+    end
+
+    # Tie the seller to a warehouse by code (for WMS order routing + inventory).
+    # Blank leaves the current assignment (merge semantics).
+    def assign_warehouse(seller, row)
+      code = row["warehouse_code"].to_s.strip
+      return if code.blank?
+
+      wh = Warehouse.find_by("lower(whs_code) = ?", code.downcase)
+      raise "unknown warehouse_code '#{code}'" if wh.nil?
+
+      seller.warehouse = wh
+    end
+
+    def truthy_wms(value)
+      %w[1 true yes y t active on].include?(value.to_s.strip.downcase)
     end
 
     # Spreadsheet money carries thousands separators + padding ("1,000,000 ").

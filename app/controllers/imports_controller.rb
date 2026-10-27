@@ -1,11 +1,18 @@
 class ImportsController < ApplicationController
   # kind => [resource for authorization, importer class]
   KINDS = {
-    "products"         => [:product, "Import::ProductsImporter",        "/products"],
-    "stores"           => [:store,   "Import::StoresImporter",          "/stores"],
-    "sellers"          => [:seller,  "Import::SellersImporter",         "/sellers"],
-    "product_channels" => [:product, "Import::ProductChannelsImporter", "/product_channels"],
-    "promos"           => [:promo,   "Import::PromosImporter",          "/promos"]
+    "products"          => [:product,          "Import::ProductsImporter",         "/products"],
+    "stores"            => [:store,            "Import::StoresImporter",           "/stores"],
+    "sellers"           => [:seller,           "Import::SellersImporter",          "/sellers"],
+    "product_channels"  => [:product,          "Import::ProductChannelsImporter",  "/product_channels"],
+    "promos"            => [:promo,            "Import::PromosImporter",           "/promos"],
+    # WMS masters + feeds
+    "warehouses"        => [:warehouse,        "Import::WarehousesImporter",       "/warehouses"],
+    "storage_locations" => [:storage_location, "Import::StorageLocationsImporter", "/wms/storage_locations"],
+    "inventory"         => [:inventory,        "Import::InventoryImporter",        "/wms/inventory"],
+    "asn"               => [:receipt,          "Import::AsnImporter",              "/wms/receipts"],
+    "dispatch_orders"   => [:fulfillment_order, "Import::DispatchOrdersImporter",  "/wms/demand"],
+    "returns"           => [:wms_return,       "Import::ReturnsImporter",          "/wms/returns"]
   }.freeze
 
   # Importers that take a default branch for NEW rows lacking a branch_code.
@@ -62,7 +69,8 @@ class ImportsController < ApplicationController
             importer.new(data, user: current_user, filename: file.original_filename,
                          default_branch: current_user.branch || Branch.first).call
           else
-            importer.new(data, user: current_user, filename: file.original_filename).call
+            importer.new(data, user: current_user, filename: file.original_filename,
+                         mode: params[:mode]).call
           end
     notice = "Imported #{log.processed_rows}/#{log.total_rows} rows" \
              "#{log.error_count.positive? ? " (#{log.error_count} rejected — see Logs)" : ""}."
@@ -77,7 +85,7 @@ class ImportsController < ApplicationController
                          filename: file.original_filename)
     log.source_file.attach(io: StringIO.new(data), filename: file.original_filename,
                            content_type: "text/csv")
-    Import::RunJob.perform_later(log.id, @importer_class, @kind)
+    Import::RunJob.perform_later(log.id, @importer_class, @kind, params[:mode].presence)
     redirect_to job_logs_path,
                 notice: "#{file.original_filename} (~#{row_count} rows) queued — importing in the " \
                         "background. Refresh this page to watch progress."
@@ -92,7 +100,27 @@ class ImportsController < ApplicationController
     when "products"        then products_sample
     when "stores"          then stores_sample
     when "sellers"         then sellers_sample
+    when "warehouses"        then warehouses_sample
+    when "storage_locations" then storage_locations_sample
+    when "inventory"         then inventory_sample
+    when "asn"               then asn_sample
+    when "dispatch_orders"   then dispatch_orders_sample
+    when "returns"           then returns_sample
     else "\n"
+    end
+  end
+
+  def returns_sample
+    wh = Warehouse.order(:whs_code).first&.whs_code || "WH-MAIN"
+    store = Store.order(:store_code).first&.store_code || "ST-0001"
+    p = Product.where.not(it_barcode: [nil, ""]).order(:id).first
+    sku = p&.sku || "KOP-3IN1-10S"; bc = p&.it_barcode || "4800016641"
+    CSV.generate do |csv|
+      csv << %w[warehouse_code ref store_code itemkey it_barcode qty uom notes]
+      csv << [wh, "RET-2026-001", store, sku, bc, "3", "case",
+              "Keyed on itemkey (same as the ASN). Leave disposition OUT — the operator tags each line " \
+              "saleable/damaged/quarantine when processing and the system suggests where to drop it. uom = case or pc."]
+      csv << [wh, "RET-2026-001", store, sku, bc, "8", "pc", "Loose returns: add a pc line."]
     end
   end
 
@@ -101,8 +129,8 @@ class ImportsController < ApplicationController
                      start_date end_date per_store_limit status notes].freeze
 
   SELLER_HEADERS = %w[seller_code name branch_code status section vcsi_sales_rep_ref supervisor_name gsm_name
-                      om_name sales_target diser_code diser_name primary_seller_code manager_codes pin diser_pin
-                      notes].freeze
+                      om_name sales_target diser_code diser_name primary_seller_code manager_codes
+                      warehouse_code wms_enabled pin diser_pin notes].freeze
 
   # One worked example of EVERY mechanic, each with a plain-English `notes`
   # column (the importer ignores unknown columns like `notes`).
@@ -157,11 +185,12 @@ class ImportsController < ApplicationController
   def sellers_sample
     branch = Branch.order(:code).first&.code || "HQ"
     mgr = Manager.order(:code).first&.code
+    wh = Warehouse.wms.order(:whs_code).first&.whs_code || Warehouse.order(:whs_code).first&.whs_code || "WH-MAIN"
     rows = [
       { seller_code: "SLR-001", name: "Juan Dela Cruz", branch_code: branch, status: "active", section: "KA",
         vcsi_sales_rep_ref: "538614", supervisor_name: "Supervisor A", gsm_name: "GSM A", om_name: "OM A",
-        sales_target: "1500000", manager_codes: mgr,
-        notes: "vcsi_sales_rep_ref MUST match the rep code in vcsi_rise (drives sellout/targets/By-channel). status = active/suspended/inactive. manager_codes = ';'-separated." },
+        sales_target: "1500000", manager_codes: mgr, warehouse_code: wh, wms_enabled: "true",
+        notes: "warehouse_code ties this seller to a warehouse; wms_enabled=true routes their orders through the WMS (pick/pack/dispatch) IF that warehouse also has WMS on — else blank/false keeps OSB batch download. vcsi_sales_rep_ref MUST match vcsi_rise." },
       { seller_code: "SLR-001-B", name: "Juan Dela Cruz (Branch 2)", branch_code: branch, status: "active",
         section: "HFS", vcsi_sales_rep_ref: "538615", sales_target: "0", primary_seller_code: "SLR-001",
         notes: "A rep's SECOND code -> set primary_seller_code to the main code to merge them into one login group (put the primary row first)." },
@@ -187,8 +216,12 @@ class ImportsController < ApplicationController
 
   def products_sample
     CSV.generate do |csv|
-      csv << %w[itemkey desc1 desc2 brand_code category_code item_tier stock_uom purchase_uom selling_uom items_per_case it_barcode cs_barcode sw_barcode item_cost case_cost tax status]
-      csv << ["KOP-3IN1-10S", "Kopiko Brown 3in1 10s", "", "KOPIKO", "COFFEE", "mainstream", "PC", "CASE", "PC", "12", "4800016641", "14800016641", "", "8.50", "102.00", "VAT", "active"]
+      csv << %w[itemkey desc1 desc2 brand_code category_code item_tier abc_class stock_uom purchase_uom selling_uom
+                items_per_case items_per_shrinkwrap shrinkwraps_per_case casesperpallet layersperpallet casestatfactor
+                caseheight caseweight casevolume it_barcode cs_barcode sw_barcode item_cost case_cost tax status]
+      csv << ["KOP-3IN1-10S", "Kopiko Brown 3in1 10s", "", "KOPIKO", "COFFEE", "mainstream", "A", "PC", "CASE", "PC",
+              "12", "6", "2", "80", "5", "1", "0.2500", "5.4000", "0.0180", "4800016641", "14800016641", "",
+              "8.50", "102.00", "VAT", "active"]
     end
   end
 
@@ -219,6 +252,83 @@ class ImportsController < ApplicationController
     CSV.generate do |csv|
       csv << headers
       rows.each { |r| csv << headers.map { |h| r[h.to_sym] } }
+    end
+  end
+
+  # ---- WMS samples (pre-filled with real codes where possible) ----------------
+
+  def warehouses_sample
+    branch = Branch.order(:code).first&.code || "HQ"
+    CSV.generate do |csv|
+      csv << %w[whs_code wh_name branch_code address status wms_enabled allocation_strategy]
+      csv << ["WH-MAIN", "Main Warehouse", branch, "123 Logistics Ave", "active", "true", "brand_per_picker"]
+    end
+  end
+
+  def storage_locations_sample
+    wh = Warehouse.order(:whs_code).first&.whs_code || "WH-MAIN"
+    brand = Brand.order(:code).first&.code || "KOPIKO"
+    rows = [
+      { warehouse_code: wh, loc_code: "DOCK", name: "Receiving dock", zone: "DOCK", loc_type: "receiving_dock",
+        pickable: "false", allow_mixed_lots: "true", slot_capacity: "9999", pick_sequence: "0",
+        allowed_abc_classes: "", allowed_brand_codes: "", status: "active" },
+      { warehouse_code: wh, loc_code: "A-01-01", name: "Aisle A Bay 1 Lvl 1", zone: "A", aisle: "A", bay: "01", level: "01",
+        loc_type: "pick_rack", pickable: "true", allow_mixed_lots: "false", slot_capacity: "1", pick_sequence: "1",
+        allowed_abc_classes: "A", allowed_brand_codes: brand, status: "active" },
+      { warehouse_code: wh, loc_code: "BUF-01", name: "Buffer overflow", zone: "BUFFER", loc_type: "buffer",
+        pickable: "false", allow_mixed_lots: "true", slot_capacity: "4", pick_sequence: "900",
+        allowed_abc_classes: "", allowed_brand_codes: "", status: "active" },
+      { warehouse_code: wh, loc_code: "HV-01", name: "High-value cage", zone: "HV", loc_type: "high_value",
+        pickable: "true", allow_mixed_lots: "true", slot_capacity: "20", pick_sequence: "10",
+        allowed_abc_classes: "", allowed_brand_codes: "", status: "active" },
+    ]
+    headers = %w[warehouse_code loc_code name zone aisle bay level loc_type pickable allow_mixed_lots
+                 slot_capacity pick_sequence allowed_abc_classes allowed_brand_codes status]
+    CSV.generate do |csv|
+      csv << headers
+      rows.each { |r| csv << headers.map { |h| r[h.to_sym] } }
+    end
+  end
+
+  def inventory_sample
+    wh = Warehouse.order(:whs_code).first&.whs_code || "WH-MAIN"
+    sku = Product.order(:id).first&.sku || "KOP-3IN1-10S"
+    bc = Product.where.not(it_barcode: [nil, ""]).order(:id).first&.it_barcode || "4800016641"
+    CSV.generate do |csv|
+      csv << %w[warehouse_code loc_code itemkey it_barcode lot_code received_date expiry_date qty_on_hand uom]
+      csv << [wh, "A-01-01", sku, bc, "LOT-2026-10", "2026-10-01", "2027-10-01", "80", "case"]
+    end
+  end
+
+  def asn_sample
+    wh = Warehouse.order(:whs_code).first&.whs_code || "WH-MAIN"
+    p = Product.where.not(it_barcode: [nil, ""]).order(:id).first
+    sku = p&.sku || "KOP-3IN1-10S"
+    bc = p&.it_barcode || "4800016641"
+    CSV.generate do |csv|
+      csv << %w[warehouse_code po_ref itemkey it_barcode expected_qty uom notes]
+      csv << [wh, "PO-2026-1001", sku, bc, "80", "case",
+              "itemkey (sku) is the KEY — it pins the exact item and travels with the stock to picking. " \
+              "it_barcode is optional (taken from the product master if blank); the product's it_barcode scans loose/pieces and its cs_barcode scans cases. uom = case or pc."]
+      csv << [wh, "PO-2026-1001", sku, bc, "24", "pc",
+              "Same itemkey can arrive as loose pieces too — add a second line with uom=pc."]
+    end
+  end
+
+  def dispatch_orders_sample
+    wh = Warehouse.order(:whs_code).first&.whs_code || "WH-MAIN"
+    store = Store.order(:store_code).first&.store_code || "ST-0001"
+    bc  = Product.where.not(it_barcode: [nil, ""]).order(:id).first&.it_barcode || "4800016641"
+    bc2 = Product.where.not(it_barcode: [nil, ""]).order(:id).offset(1).first&.it_barcode || bc
+    today = Date.current
+    CSV.generate do |csv|
+      # Manual pick-job upload: identify the item by its BARCODE and give the
+      # QUANTITY in pieces. The system finds the product, splits full cases from
+      # the loose remainder, and FIFO resolves the itemkey (+ case barcode).
+      csv << %w[warehouse_code reference_no store_code demand_date delivery_date remarks it_barcode quantity]
+      # One pick job (reference_no) can have several item lines.
+      csv << [wh, "DSP-0001", store, today, today + 1, "AM delivery only", bc, "120"]
+      csv << [wh, "DSP-0001", store, today, today + 1, "", bc2, "30"]
     end
   end
 end
