@@ -49,14 +49,12 @@ class OrderBatchesController < ApplicationController
     end
   end
 
-  # Download once (locks against double-download / double-invoicing) and stream CSV.
+  # Stream the batch CSV. Re-download is always allowed (also after invoicing);
+  # each download refreshes the audit stamp.
   def download
     authorize_branch!(@batch)
     @batch.download!(current_user)
     send_data batch_csv(@batch), filename: "#{@batch.batch_number}.csv", type: "text/csv"
-  rescue OrderBatch::AlreadyDownloaded
-    redirect_to order_batch_path(@batch),
-                alert: "Already downloaded on #{@batch.downloaded_at&.strftime('%d %b %H:%M')} by #{@batch.downloaded_by&.full_name}. Re-download blocked to prevent double invoicing."
   end
 
   private

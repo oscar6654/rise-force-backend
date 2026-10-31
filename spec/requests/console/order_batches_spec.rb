@@ -58,4 +58,22 @@ RSpec.describe "Order batches console", type: :request do
     expect(response).to have_http_status(:redirect)
     expect(OrderBatch.where(seller: seller, branch: branch).count).to eq(1)
   end
+
+  it "re-downloads the CSV of an invoiced batch, keeping it invoiced" do
+    branch = create(:branch)
+    seller = create(:seller, branch: branch)
+    store  = create(:store, branch: branch)
+    create(:order, seller: seller, store: store, branch: branch, status: :submitted, total_amount: 10)
+    batch = OrderBatch.build_for(branch: branch, seller: seller, user: user)
+    batch.download!(user)
+    OrderBatch.mark_invoiced_after_sync!(1.second.from_now)
+
+    get order_batch_path(batch)
+    expect(response.body).to include("Download again")
+
+    get download_order_batch_path(batch)
+    expect(response).to have_http_status(:ok)
+    expect(response.media_type).to eq("text/csv")
+    expect(batch.reload).to be_invoiced
+  end
 end

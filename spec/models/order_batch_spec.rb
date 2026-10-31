@@ -26,7 +26,7 @@ RSpec.describe OrderBatch do
   end
 
   describe "#download!" do
-    it "marks the batch downloaded, allows re-download, and freezes once invoiced" do
+    it "marks the batch downloaded and always allows re-download, even once invoiced" do
       submitted_order
       batch = described_class.build_for(branch: branch, seller: seller, user: nil)
 
@@ -38,9 +38,12 @@ RSpec.describe OrderBatch do
       # Re-download is allowed (recover a lost/partial download) and refreshes the stamp.
       expect { batch.download!(nil) }.not_to raise_error
 
-      # Once invoiced, the batch is frozen — no re-pull.
-      batch.update!(status: :invoiced)
-      expect { batch.download!(nil) }.to raise_error(OrderBatch::AlreadyDownloaded)
+      # Invoiced (after a sellout sync): re-download still works and the batch
+      # and its orders stay invoiced (no return to "to invoice").
+      OrderBatch.mark_invoiced_after_sync!(1.second.from_now)
+      expect { batch.download!(nil) }.not_to raise_error
+      expect(batch.reload).to be_invoiced
+      expect(batch.orders.pluck(:status).uniq).to eq(["invoiced"])
     end
   end
 
