@@ -27,7 +27,7 @@ class OrderBatch < ApplicationRecord
         locked_by: user, batch_number: build_number(branch, seller, seq),
         order_count: candidates.size, total_amount: candidates.sum(&:total_amount)
       )
-      Order.where(id: candidates.map(&:id)).update_all(order_batch_id: batch.id, status: Order.statuses[:batched])
+      Order.where(id: candidates.map(&:id)).update_all(order_batch_id: batch.id, status: Order.statuses[:batched], updated_at: Time.current)
       batch
     end
   end
@@ -42,7 +42,7 @@ class OrderBatch < ApplicationRecord
       raise AlreadyDownloaded if locked.invoiced?
 
       locked.update!(status: :downloaded, downloaded_at: Time.current, downloaded_by: user)
-      locked.orders.where.not(status: :invoiced).update_all(status: Order.statuses[:downloaded])
+      locked.orders.where.not(status: :invoiced).update_all(status: Order.statuses[:downloaded], updated_at: Time.current)
       locked
     end
   end

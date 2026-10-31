@@ -202,13 +202,11 @@ class Seller < ApplicationRecord
   end
   alias_method :confirmed_actual, :actual_for
 
-  # "To invoice": SFA presell this month NET of confirmed sellout (only positive
+  # "To invoice": SFA presell this month not yet downloaded for OSB, NET of confirmed sellout (only positive
   # confirmed, floored at 0 — a negative net from credit notes must not inflate
   # it), so it clears as vcsi confirms. blended = max(confirmed, presell).
   def pending_presell(month = Date.current.beginning_of_month)
-    gross = orders.where.not(status: :cancelled)
-                  .where(ordered_at: month.beginning_of_day..month.end_of_month.end_of_day)
-                  .sum(:total_amount)
+    gross = orders.to_invoice.ordered_in_month(month).sum(:total_amount)
     [gross - [confirmed_actual(month), 0].max, 0].max
   end
 

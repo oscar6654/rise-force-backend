@@ -72,6 +72,20 @@ RSpec.describe "vcsi_rise store sync + reconciling actual" do
       expect(store.pending_presell(month)).to eq(30) # the order value, not 14,030
     end
 
+    it "clears to-invoice once the order's batch is downloaded for OSB" do
+      create(:order, store: store, seller: seller, branch: branch,
+                     ordered_at: 1.day.ago, total_amount: 12_000, status: :submitted)
+      expect(store.pending_presell(month)).to eq(12_000)
+      expect(seller.pending_presell(month)).to eq(12_000)
+
+      batch = OrderBatch.build_for(branch: branch, seller: seller, user: nil)
+      expect(store.pending_presell(month)).to eq(12_000) # batched, not yet handed off
+
+      batch.download!(nil)
+      expect(store.pending_presell(month)).to eq(0)
+      expect(seller.pending_presell(month)).to eq(0)
+    end
+
     it "excludes cancelled orders from presell" do
       create(:order, store: store, seller: seller, branch: branch,
                      ordered_at: 1.day.ago, total_amount: 9_000, status: :cancelled)

@@ -23,7 +23,7 @@ class DashboardController < ApplicationController
     # Presell PENDING = gross SFA orders (excl. cancelled) NET of confirmed vcsi
     # sellout, per seller, floored at 0 — so it clears as sellout syncs instead
     # of double-counting invoiced orders. (Same model as the app's "To invoice".)
-    gross_presell_by_seller = orders.where.not(status: :cancelled).where(ordered_at: @month..)
+    gross_presell_by_seller = orders.to_invoice.where(ordered_at: @month..)
                                     .group(:seller_id).sum(:total_amount)
     confirmed_by_seller = SelloutSnapshot.period_mtd.where(period_date: @month, seller_id: sellers.select(:id))
                                          .group(:seller_id).sum(:amount)
