@@ -36,8 +36,7 @@ module SellerPerformanceApi
   def seller_kpi(s, month)
     ids = s.login_group_ids
     confirmed = SelloutSnapshot.where(seller_id: ids, period_type: :mtd, period_date: month).sum(:amount)
-    gross_presell = Order.where(seller_id: ids).to_invoice.ordered_in_month(month).sum(:total_amount)
-    presell = [gross_presell - [confirmed, 0].max, 0].max # net of POSITIVE confirmed → clears as vcsi syncs
+    presell = Order.where(seller_id: ids).to_invoice.ordered_in_month(month).sum(:total_amount) # see Order.to_invoice
     target = SellerTarget.where(seller_id: ids, period_type: :mtd, period_date: month).sum(:target_amount).to_d
     blended = confirmed + presell
     {
@@ -82,7 +81,7 @@ module SellerPerformanceApi
                      .group(:store_id).sum(:total_amount)
     Store.where(id: store_ids).includes(:branch).order(:name).map do |st|
       conf = confirmed[st.id] || 0.to_d
-      pre  = [(presell[st.id] || 0.to_d) - [conf, 0].max, 0].max # net of positive confirmed
+      pre  = presell[st.id] || 0.to_d # not netted — see Order.to_invoice
       tgt  = targets[st.id]&.target_amount
       { store_id: st.id, name: st.name, code: st.code, branch: st.branch&.name,
         target_amount: tgt, confirmed_actual: conf, presell_pending: pre, blended_actual: conf + pre,

@@ -64,15 +64,11 @@ class Store < ApplicationRecord
     SelloutSnapshot.store_mtd_actual_for(self, month: month)
   end
 
-  # "To invoice": SFA presell this month not yet downloaded for OSB and that
-  # vcsi hasn't confirmed yet — gross
-  # presell NET of confirmed sellout, floored at 0, so it clears as vcsi syncs and
-  # blended_actual becomes max(confirmed, presell). Nets only POSITIVE confirmed:
-  # a NEGATIVE net (credit notes) must not inflate presell (30 - (-14000)!).
-  # Excludes downloaded / invoiced / cancelled (Order.to_invoice).
+  # "To invoice": SFA presell this month not yet invoiced — clears only after
+  # OSB downloads the batch AND a sellout sync runs (Order.to_invoice). Not
+  # netted against vcsi sellout.
   def pending_presell(month = Date.current.beginning_of_month)
-    gross = orders.to_invoice.ordered_in_month(month).sum(:total_amount)
-    [gross - [confirmed_actual(month), 0].max, 0].max
+    orders.to_invoice.ordered_in_month(month).sum(:total_amount)
   end
 
   # The reconciling actual shown against target: confirmed truth + fresh presell

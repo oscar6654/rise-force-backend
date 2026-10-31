@@ -1,6 +1,7 @@
 require "rails_helper"
 
 RSpec.describe "vcsi_rise store sync + reconciling actual" do
+  include ActiveSupport::Testing::TimeHelpers
   let(:branch) { create(:branch) }
   let(:seller) { create(:seller, branch: branch) }
   let(:store)  { create(:store, branch: branch, seller: seller, vcsi_customer_ref: "CUST-1") }
@@ -41,54 +42,67 @@ RSpec.describe "vcsi_rise store sync + reconciling actual" do
     end
   end
 
-  describe "reconciling actual (presell nets against confirmed, clears as vcsi syncs)" do
-    it "to-invoice = SFA orders NET of confirmed sellout, so it clears as vcsi confirms" do
+  describe "to invoice (cleared by OSB download + a later sellout sync, never netted)" do
+    let(:sellout_row) { [{ "customer_id" => "CUST-1", "sellout" => "3000.0", "transactions" => 1 }] }
+
+    def place(amount, status: :submitted)
       create(:order, store: store, seller: seller, branch: branch,
-                     ordered_at: 2.days.ago, total_amount: 25_000, status: :submitted)
-      expect(store.pending_presell(month)).to eq(25_000) # nothing confirmed yet
+                     ordered_at: 1.day.ago, total_amount: amount, status: status)
+    end
 
-      # A sync brings vcsi confirmed sellout — to-invoice shrinks by the confirmed.
-      stub_client(sellout: [{ "customer_id" => "CUST-1", "sellout" => "20000.0", "transactions" => 2 }])
-      Vcsi::StoreSelloutSyncJob.perform_now
-      expect(store.confirmed_actual(month)).to eq(20_000)
-      expect(store.pending_presell(month)).to eq(5_000)  # 25k ordered − 20k confirmed
-      expect(store.blended_actual(month)).to eq(25_000)  # max(confirmed, presell)
-
-      # Once confirmed catches up to / exceeds presell, to-invoice clears to 0.
+    it "is NOT netted against vcsi confirmed sellout" do
+      place(25_000)
       stub_client(sellout: [{ "customer_id" => "CUST-1", "sellout" => "30000.0", "transactions" => 3 }])
       Vcsi::StoreSelloutSyncJob.perform_now
-      expect(store.pending_presell(month)).to eq(0)
-      expect(store.blended_actual(month)).to eq(30_000)
+      expect(store.confirmed_actual(month)).to eq(30_000)
+      expect(store.pending_presell(month)).to eq(25_000) # not downloaded → still to invoice
+      expect(store.blended_actual(month)).to eq(55_000)
     end
 
-    it "is not inflated when vcsi confirmed sellout is NEGATIVE (net credit notes)" do
-      # Nets only POSITIVE confirmed, so a negative net can't blow it up
-      # (the old prod bug: 30 - (-14000) = 14000+).
-      create(:order, store: store, seller: seller, branch: branch,
-                     ordered_at: 1.day.ago, total_amount: 30, status: :submitted)
-      stub_client(sellout: [{ "customer_id" => "CUST-1", "sellout" => "-14000.0", "transactions" => 1 }])
-      Vcsi::StoreSelloutSyncJob.perform_now
-      expect(store.confirmed_actual(month)).to eq(-14_000)
-      expect(store.pending_presell(month)).to eq(30) # the order value, not 14,030
-    end
-
-    it "clears to-invoice once the order's batch is downloaded for OSB" do
-      create(:order, store: store, seller: seller, branch: branch,
-                     ordered_at: 1.day.ago, total_amount: 12_000, status: :submitted)
-      expect(store.pending_presell(month)).to eq(12_000)
-      expect(seller.pending_presell(month)).to eq(12_000)
-
+    it "stays after batch download, clears after the NEXT sellout sync" do
+      place(12_000)
       batch = OrderBatch.build_for(branch: branch, seller: seller, user: nil)
-      expect(store.pending_presell(month)).to eq(12_000) # batched, not yet handed off
+      expect(store.pending_presell(month)).to eq(12_000) # batched
 
       batch.download!(nil)
+      expect(store.pending_presell(month)).to eq(12_000) # downloaded, sync not run yet
+      expect(seller.pending_presell(month)).to eq(12_000)
+
+      stub_client(sellout: sellout_row)
+      travel 1.minute do
+        log = Vcsi::StoreSelloutSyncJob.perform_now
+        expect(log.result_summary["orders_invoiced"]).to eq(1)
+      end
       expect(store.pending_presell(month)).to eq(0)
       expect(seller.pending_presell(month)).to eq(0)
+      expect(batch.reload).to be_invoiced
+      expect(batch.orders.pluck(:status).uniq).to eq(["invoiced"])
     end
 
-    it "excludes cancelled orders from presell" do
-      create(:order, store: store, seller: seller, branch: branch,
-                     ordered_at: 1.day.ago, total_amount: 9_000, status: :cancelled)
+    it "the seller-level sellout sync clears it too" do
+      place(5_000)
+      OrderBatch.build_for(branch: branch, seller: seller, user: nil).download!(nil)
+      client = stub_client
+      allow(client).to receive(:sellout).and_return([])
+      travel(1.minute) { Vcsi::SelloutSyncJob.perform_now }
+      expect(store.pending_presell(month)).to eq(0)
+    end
+
+    it "a sync does not clear batches not yet downloaded, or downloaded after it started" do
+      place(7_000)
+      OrderBatch.build_for(branch: branch, seller: seller, user: nil) # batched only
+      stub_client(sellout: sellout_row)
+      Vcsi::StoreSelloutSyncJob.perform_now
+      expect(store.pending_presell(month)).to eq(7_000)
+
+      batch = OrderBatch.last
+      batch.download!(nil)
+      expect(OrderBatch.mark_invoiced_after_sync!(1.minute.ago)).to eq(0) # sync started before download
+      expect(store.pending_presell(month)).to eq(7_000)
+    end
+
+    it "excludes cancelled orders" do
+      place(9_000, status: :cancelled)
       expect(store.pending_presell(month)).to eq(0)
     end
   end

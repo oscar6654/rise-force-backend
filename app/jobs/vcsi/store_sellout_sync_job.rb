@@ -44,6 +44,10 @@ module Vcsi
           SelloutSnapshot.upsert_all(records, unique_by: :index_sellout_snapshots_store_grain)
         end
 
+        # Batches OSB downloaded before this sync are now in vcsi_rise:
+        # mark them invoiced so they drop off the app's "to invoice".
+        invoiced = OrderBatch.mark_invoiced_after_sync!(log.started_at)
+        log.result_summary = log.result_summary.merge("orders_invoiced" => invoiced)
         log.save!
       end
     end

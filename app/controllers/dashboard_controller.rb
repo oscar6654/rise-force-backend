@@ -20,14 +20,11 @@ class DashboardController < ApplicationController
                                         .sum(:amount)
     @last_sellout_sync = SelloutSnapshot.period_mtd.where(period_date: @month, seller_id: sellers.select(:id)).maximum(:synced_at)
 
-    # Presell PENDING = gross SFA orders (excl. cancelled) NET of confirmed vcsi
-    # sellout, per seller, floored at 0 — so it clears as sellout syncs instead
-    # of double-counting invoiced orders. (Same model as the app's "To invoice".)
+    # Presell PENDING = SFA orders not yet invoiced (cleared once OSB downloads
+    # the batch and a sellout sync runs). Same model as the app's "To invoice".
     gross_presell_by_seller = orders.to_invoice.where(ordered_at: @month..)
                                     .group(:seller_id).sum(:total_amount)
-    confirmed_by_seller = SelloutSnapshot.period_mtd.where(period_date: @month, seller_id: sellers.select(:id))
-                                         .group(:seller_id).sum(:amount)
-    presell_pending_mtd = gross_presell_by_seller.sum { |sid, gross| [gross - [confirmed_by_seller[sid] || 0, 0].max, 0].max }
+    presell_pending_mtd = gross_presell_by_seller.values.sum
 
     @kpis = {
       registered_stores: stores.where(status: :active).count,
@@ -56,7 +53,7 @@ class DashboardController < ApplicationController
     @attainment = sellers.includes(:branch).map do |s|
       target = targets[s.id]&.target_amount || 0
       actual = actuals[s.id] || 0
-      pending = [(gross_presell_by_seller[s.id] || 0) - [actual, 0].max, 0].max # net of positive confirmed
+      pending = gross_presell_by_seller[s.id] || 0 # not netted — see Order.to_invoice
       { seller: s, target: target, actual: actual, presell: pending,
         pct: target.positive? ? (actual / target * 100).round : nil,
         last_sync: s.last_sync_at }

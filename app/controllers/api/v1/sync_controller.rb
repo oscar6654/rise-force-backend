@@ -159,14 +159,12 @@ module Api
         confirmed = grain.group(:store_id).sum(:amount)
         last_sync = grain.group(:store_id).maximum(:synced_at)
 
-        # "To invoice" per store = SFA presell orders this month that are still
-        # waiting on OSB (submitted / batched — a DOWNLOADED batch has been handed
-        # off for invoicing), NET of positive confirmed sellout and floored at 0,
-        # so it clears on batch download OR once vcsi sellout syncs. Same model as
-        # Store#pending_presell (the store detail screen).
+        # "To invoice" per store = SFA presell orders this month not yet
+        # invoiced. Clears only after OSB downloads the batch AND a sellout
+        # sync runs (Order.to_invoice). Not netted against vcsi sellout.
         month_orders = Order.where(store_id: store_ids).ordered_in_month(month)
-        gross_presell = month_orders.to_invoice.group(:store_id).sum(:total_amount)
-        # Newest order change per store (placed / batched / downloaded) so the
+        to_invoice = month_orders.to_invoice.group(:store_id).sum(:total_amount)
+        # Newest order change per store (placed / batched / invoiced) so the
         # delta re-sends a store whose to-invoice moved without a vcsi write.
         order_touched = month_orders.group(:store_id).maximum(:updated_at)
 
@@ -174,7 +172,7 @@ module Api
         rows = store_ids.filter_map do |sid|
           target = targets[sid]
           conf   = confirmed[sid] || 0.to_d
-          presell = [(gross_presell[sid] || 0).to_d - [conf, 0].max, 0].max
+          presell = (to_invoice[sid] || 0).to_d
           # Store's freshness = newest vcsi write across its target and sellout.
           synced = [target&.synced_at, last_sync[sid]].compact.max
           changed = [synced, order_touched[sid]].compact.max

@@ -47,6 +47,24 @@ class OrderBatch < ApplicationRecord
     end
   end
 
+  # Called at the end of a successful vcsi_rise sellout sync (Import Logs).
+  # Every batch OSB downloaded BEFORE the sync started has been cut into
+  # vcsi_rise, so it and its orders flip to INVOICED — clearing them from the
+  # app's "to invoice" and freezing the batch against re-download. Batches
+  # downloaded after the sync started wait for the next sync. Returns the
+  # number of orders invoiced.
+  def self.mark_invoiced_after_sync!(sync_started_at)
+    transaction do
+      ids = where(status: :downloaded).where(downloaded_at: ..sync_started_at).lock.pluck(:id)
+      return 0 if ids.empty?
+
+      now = Time.current
+      where(id: ids).update_all(status: statuses[:invoiced], updated_at: now)
+      Order.where(order_batch_id: ids, status: :downloaded)
+           .update_all(status: Order.statuses[:invoiced], updated_at: now)
+    end
+  end
+
   def self.build_number(branch, seller, seq)
     "#{branch.code}-#{seller&.seller_code || 'ALL'}-#{Time.current.strftime('%Y%m%d')}-#{format('%03d', seq)}"
   end
