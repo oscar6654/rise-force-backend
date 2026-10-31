@@ -1,6 +1,7 @@
 require "rails_helper"
 
 RSpec.describe "Api::V1 seller-scoped sync", type: :request do
+  include ActiveSupport::Testing::TimeHelpers
   let(:branch) { create(:branch) }
   let(:seller) { create(:seller, branch: branch, vcsi_sales_rep_ref: "REP-9") }
   let(:route)  { Route.create!(seller: seller, branch: branch, code: "R1", name: "R1") }
@@ -73,6 +74,31 @@ RSpec.describe "Api::V1 seller-scoped sync", type: :request do
       get "/api/v1/sync/store_performance", params: { updated_since: 1.minute.from_now.iso8601 },
           headers: auth_header, as: :json
       expect(response.parsed_body["data"]).to be_empty
+    end
+
+    it "to-invoice stays through download, clears after a sellout sync, and the delta re-sends the store" do
+      client = stub_client
+      post "/api/v1/sync/refresh", headers: auth_header, as: :json
+      create(:order, store: store, seller: seller, branch: store.branch,
+                     ordered_at: Time.current, total_amount: 90_000, status: :submitted)
+      batch = OrderBatch.build_for(branch: store.branch, seller: seller, user: nil)
+      batch.download!(nil)
+
+      header = auth_header
+      get "/api/v1/sync/store_performance", headers: header, as: :json
+      row = response.parsed_body["data"].find { |r| r["store_id"] == store.id }
+      expect(row["presell_pending"].to_f).to eq(90_000) # not netted vs 40k confirmed
+
+      cursor = Time.current
+      travel 1.minute do
+        allow(client).to receive(:store_sellout).and_return([])
+        Vcsi::StoreSelloutSyncJob.perform_now # Import Logs sellout sync
+        get "/api/v1/sync/store_performance", params: { updated_since: cursor.iso8601 },
+            headers: header, as: :json
+      end
+      row = response.parsed_body["data"].find { |r| r["store_id"] == store.id }
+      expect(row).to be_present
+      expect(row["presell_pending"].to_f).to eq(0)
     end
   end
 

@@ -15,6 +15,14 @@ class Order < ApplicationRecord
   scope :for_branches, ->(ids) { where(branch_id: ids) }
   scope :unbatched, -> { where(order_batch_id: nil, status: :submitted) }
 
+  # "To invoice" = SFA orders not yet invoiced. An order only leaves this once
+  # OSB has DOWNLOADED its batch AND a vcsi_rise sellout sync has run after that
+  # download (see OrderBatch.mark_invoiced_after_sync!) — it is never netted
+  # against vcsi sellout, whose invoice data doesn't line up with SFA orders.
+  TO_INVOICE_STATUSES = %i[submitted batched downloaded].freeze
+  scope :to_invoice, -> { where(status: TO_INVOICE_STATUSES) }
+  scope :ordered_in_month, ->(month) { where(ordered_at: month.beginning_of_day..month.end_of_month.end_of_day) }
+
   before_create :assign_order_number
 
   def recompute_total!

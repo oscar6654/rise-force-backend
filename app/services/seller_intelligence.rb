@@ -28,8 +28,7 @@ class SellerIntelligence
     ids = stores.map(&:id)
     targets = StoreTarget.for_month(@month).where(store_id: ids).index_by(&:store_id)
     confirmed = sellout_scope(ids).group(:store_id).sum(:amount)
-    presell = Order.where(store_id: ids).where.not(status: :cancelled)
-                   .where(ordered_at: @month.beginning_of_day..@month.end_of_month.end_of_day)
+    presell = Order.where(store_id: ids).to_invoice.ordered_in_month(@month)
                    .group(:store_id).sum(:total_amount)
     last_order = Order.where(store_id: ids).where.not(status: :cancelled)
                       .group(:store_id).maximum(:ordered_at)
@@ -40,7 +39,7 @@ class SellerIntelligence
       target = t&.target_amount.to_d
       basis = t&.basis_amount.to_d # trailing-3mo avg
       conf_amt = (confirmed[store.id] || 0).to_d
-      actual = conf_amt + [(presell[store.id] || 0).to_d - [conf_amt, 0].max, 0].max # presell net of positive confirmed
+      actual = conf_amt + (presell[store.id] || 0).to_d # confirmed + to-invoice (not netted)
       reasons = []
       score = 0.0
       upside = 0.to_d

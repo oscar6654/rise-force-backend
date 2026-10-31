@@ -27,6 +27,10 @@ module Vcsi
 
         records.each_slice(1_000) { |s| SelloutSnapshot.upsert_all(s, unique_by: :index_sellout_snapshots_seller_grain) }
         Seller.where(id: synced_ids).update_all(last_sync_at: now) if synced_ids.any?
+        # Batches OSB downloaded before this sync are now in vcsi_rise:
+        # mark them invoiced so they drop off the app's "to invoice".
+        invoiced = OrderBatch.mark_invoiced_after_sync!(log.started_at)
+        log.result_summary = log.result_summary.merge("orders_invoiced" => invoiced)
         log.save!
       end
     end

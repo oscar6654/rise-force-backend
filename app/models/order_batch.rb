@@ -9,8 +9,6 @@ class OrderBatch < ApplicationRecord
 
   scope :for_branches, ->(ids) { where(branch_id: ids) }
 
-  class AlreadyDownloaded < StandardError; end
-
   # Build a new batch for (branch, seller) by scooping unbatched submitted
   # orders. Uses FOR UPDATE SKIP LOCKED so concurrent builds don't grab the
   # same orders. Returns the batch (or nil if nothing to batch).
@@ -27,23 +25,45 @@ class OrderBatch < ApplicationRecord
         locked_by: user, batch_number: build_number(branch, seller, seq),
         order_count: candidates.size, total_amount: candidates.sum(&:total_amount)
       )
-      Order.where(id: candidates.map(&:id)).update_all(order_batch_id: batch.id, status: Order.statuses[:batched])
+      Order.where(id: candidates.map(&:id)).update_all(order_batch_id: batch.id, status: Order.statuses[:batched], updated_at: Time.current)
       batch
     end
   end
 
-  # Mark as downloaded and record who/when. Re-download is allowed (a lost or
-  # partial download must be recoverable) — only an INVOICED batch is frozen, so
-  # a batch that's been cut into vcsi_rise can't be re-pulled. Each call refreshes
-  # downloaded_at/by for audit. Row lock keeps concurrent downloads consistent.
+  # Mark as downloaded and record who/when. Re-download is ALWAYS allowed
+  # (OSB may need the CSV again), including after the batch is invoiced. Each
+  # call refreshes downloaded_at/by for audit; an INVOICED batch stays invoiced
+  # (its orders don't go back into "to invoice"). Row lock keeps concurrent
+  # downloads consistent.
   def download!(user)
     self.class.transaction do
       locked = self.class.lock.find(id)         # SELECT ... FOR UPDATE
-      raise AlreadyDownloaded if locked.invoiced?
-
-      locked.update!(status: :downloaded, downloaded_at: Time.current, downloaded_by: user)
-      locked.orders.where.not(status: :invoiced).update_all(status: Order.statuses[:downloaded])
+      if locked.invoiced?
+        locked.update!(downloaded_at: Time.current, downloaded_by: user)
+      else
+        locked.update!(status: :downloaded, downloaded_at: Time.current, downloaded_by: user)
+        locked.orders.where(status: %i[submitted batched])
+              .update_all(status: Order.statuses[:downloaded], updated_at: Time.current)
+      end
       locked
+    end
+  end
+
+  # Called at the end of a successful vcsi_rise sellout sync (Import Logs).
+  # Every batch OSB downloaded BEFORE the sync started has been cut into
+  # vcsi_rise, so it and its orders flip to INVOICED — clearing them from the
+  # app's "to invoice" and freezing the batch against re-download. Batches
+  # downloaded after the sync started wait for the next sync. Returns the
+  # number of orders invoiced.
+  def self.mark_invoiced_after_sync!(sync_started_at)
+    transaction do
+      ids = where(status: :downloaded).where(downloaded_at: ..sync_started_at).lock.pluck(:id)
+      return 0 if ids.empty?
+
+      now = Time.current
+      where(id: ids).update_all(status: statuses[:invoiced], updated_at: now)
+      Order.where(order_batch_id: ids, status: :downloaded)
+           .update_all(status: Order.statuses[:invoiced], updated_at: now)
     end
   end
 

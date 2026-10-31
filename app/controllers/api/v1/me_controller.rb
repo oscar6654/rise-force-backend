@@ -9,12 +9,9 @@ module Api
         ids = current_group_ids # login group: sum across the seller's 2-3 records
         target = SellerTarget.where(seller_id: ids, period_type: :mtd, period_date: month).sum(:target_amount)
         actual = SelloutSnapshot.where(seller_id: ids, period_type: :mtd, period_date: month).sum(:amount)
-        # "To invoice" = SFA presell this month NET of confirmed sellout (floored),
-        # so it clears as vcsi confirms. See Seller#pending_presell.
-        gross_presell = Order.where(seller_id: ids).where.not(status: :cancelled)
-                             .where(ordered_at: month.beginning_of_day..month.end_of_month.end_of_day)
-                             .sum(:total_amount)
-        presell = [gross_presell - [actual, 0].max, 0].max
+        # "To invoice" = SFA presell this month not yet invoiced (OSB download
+        # + sellout sync). See Order.to_invoice.
+        presell = Order.where(seller_id: ids).to_invoice.ordered_in_month(month).sum(:total_amount)
         render json: { data: {
           period: month, target_amount: target, actual_amount: actual, presell_amount: presell,
           attainment_pct: (target.positive? ? (actual / target * 100).round : nil),

@@ -159,35 +159,37 @@ module Api
         confirmed = grain.group(:store_id).sum(:amount)
         last_sync = grain.group(:store_id).maximum(:synced_at)
 
-        # "To invoice" per store = value of SFA presell orders taken this month,
-        # pending OSB invoicing. A distinct pipeline from vcsi_rise confirmed
-        # sellout (mostly non-SFA DMS sales, can be negative from credit notes), so
-        # NOT reconciled against confirmed — just what the store ordered.
-        presell = Hash.new(0.to_d)
-        Order.where(store_id: store_ids).where.not(status: :cancelled)
-             .where(ordered_at: month.beginning_of_day..month.end_of_month.end_of_day)
-             .group(:store_id).sum(:total_amount).each { |sid, amt| presell[sid] = amt.to_d }
+        # "To invoice" per store = SFA presell orders this month not yet
+        # invoiced. Clears only after OSB downloads the batch AND a sellout
+        # sync runs (Order.to_invoice). Not netted against vcsi sellout.
+        month_orders = Order.where(store_id: store_ids).ordered_in_month(month)
+        to_invoice = month_orders.to_invoice.group(:store_id).sum(:total_amount)
+        # Newest order change per store (placed / batched / invoiced) so the
+        # delta re-sends a store whose to-invoice moved without a vcsi write.
+        order_touched = month_orders.group(:store_id).maximum(:updated_at)
 
         since = updated_since
         rows = store_ids.filter_map do |sid|
           target = targets[sid]
           conf   = confirmed[sid] || 0.to_d
+          presell = (to_invoice[sid] || 0).to_d
           # Store's freshness = newest vcsi write across its target and sellout.
           synced = [target&.synced_at, last_sync[sid]].compact.max
+          changed = [synced, order_touched[sid]].compact.max
 
           if since
-            next if synced.nil? || synced <= since # nothing new from rise
+            next if changed.nil? || changed <= since # nothing new from rise or orders
           else
-            next if target.nil? && conf.zero?      # first sync: skip empty stores
+            next if target.nil? && conf.zero? && !order_touched.key?(sid) # first sync: skip empty stores
           end
 
-          blended = conf + presell[sid]
+          blended = conf + presell
           tgt_amt = target&.target_amount
           {
             store_id: sid,
             target_amount: tgt_amt,
             confirmed_actual: conf,
-            presell_pending: presell[sid],
+            presell_pending: presell,
             blended_actual: blended,
             attainment_pct: (tgt_amt.to_d.positive? ? (blended / tgt_amt * 100).round : nil),
             active: conf.positive?, # invoiced in vcsi_rise this month
